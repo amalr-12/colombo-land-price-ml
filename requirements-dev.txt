@@ -1,0 +1,11 @@
+# Everything needed to re-run the notebooks, the retraining pipeline and the tests.
+-r requirements.txt
+openpyxl==3.1.5
+lightgbm==4.7.0
+shap==0.54.1
+lime==0.2.0.1
+matplotlib==3.11.0
+seaborn==0.13.2
+nbconvert==7.17.1
+ipykernel==7.3.0
+pytest==9.1.1

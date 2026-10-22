@@ -1,0 +1,15 @@
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.pytest_cache/
+
+# CatBoost training logs
+catboost_info/
+
+# Pipeline outputs (candidate models are promoted into land_price_model.pkl, not committed directly)
+artifacts/
+*.prev.pkl
+
+# Office lock files
+~$*

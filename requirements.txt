@@ -1,0 +1,9 @@
+# Runtime for the app (Streamlit Cloud) and the model tests.
+# Pinned exactly: the saved model (land_price_model.pkl) must be loaded with the library versions it was trained with.
+streamlit==1.65.0
+pandas==3.0.3
+numpy==2.5.0
+scipy==1.18.0
+scikit-learn==1.9.0
+xgboost==3.4.1
+catboost==1.2.10

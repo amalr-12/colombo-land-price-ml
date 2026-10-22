@@ -1,0 +1,21 @@
+name: CI
+
+# Runs on every push and pull request: checks the data rules, that the saved model loads on Linux
+# (as on Streamlit Cloud) and predicts sensibly, and that the app starts.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest==9.1.1
+      - name: Run tests
+        run: python -m pytest -v

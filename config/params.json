@@ -1,0 +1,40 @@
+{
+  "_note": "Tuned hyperparameters from 02_modelling.ipynb (RandomizedSearchCV, 5-fold CV). The pipeline retrains with these fixed values.",
+  "seed": 42,
+  "test_size": 0.2,
+  "perches_per_acre": 160,
+  "iqr_k": 1.5,
+  "random_forest": {
+    "n_estimators": 271,
+    "max_depth": 20,
+    "min_samples_leaf": 3,
+    "max_features": 0.3,
+    "max_samples": null
+  },
+  "xgboost": {
+    "n_estimators": 1066,
+    "learning_rate": 0.012740679849625696,
+    "max_depth": 5,
+    "min_child_weight": 1,
+    "subsample": 0.7881202537784153,
+    "colsample_bytree": 0.776446544535664,
+    "reg_lambda": 4.039052635327218,
+    "gamma": 0.17780901716381806
+  },
+  "catboost": {
+    "iterations": 800,
+    "depth": 8,
+    "learning_rate": 0.03,
+    "l2_leaf_reg": 5
+  },
+  "band_classifier": {
+    "n_estimators": 405,
+    "max_depth": 20,
+    "min_samples_leaf": 4,
+    "max_features": 0.7
+  },
+  "quality_gate": {
+    "min_test_r2_log": 0.85,
+    "max_r2_drop_vs_current": 0.005
+  }
+}
