@@ -7,6 +7,7 @@ import pickle
 import sys
 from pathlib import Path
 
+import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -15,6 +16,8 @@ HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))  # so the pickle can find catboost_wrapper.py
 MODEL_PATH = HERE / "land_price_model.pkl"
 
+from explain import PriceExplainer, pretty_name as label  # noqa: E402
+
 
 @st.cache_resource
 def load_bundle():
@@ -22,17 +25,9 @@ def load_bundle():
         return pickle.load(f)
 
 
-def label(col):
-    """Turn a column name into something readable, e.g. min_dist_nearest_railway -> Distance to railway (km)."""
-    name = col.replace("_", " ").replace("within2km", "within 2km").replace("within 2km", "(within 2 km)")
-    if col.startswith("min_dist"):
-        name = name.replace("min dist nearest ", "").replace("min dist ", "")
-        return f"Distance to {name} (km)"
-    if col.startswith("count"):
-        return "No. of " + name.replace("count ", "")
-    if col == "Distance from fort":
-        return "Distance from Colombo Fort (km)"
-    return name
+@st.cache_resource
+def load_explainer():
+    return PriceExplainer(load_bundle())
 
 
 bundle = load_bundle()
@@ -92,3 +87,36 @@ if st.button("Estimate price", type="primary", width="stretch"):
     c.metric("Price band", band)
     st.caption(f"Bands: Low < Rs {lo:,.0f} ≤ Medium < Rs {hi:,.0f} ≤ High (per perch). "
                "The band comes from a separate classifier, so it can occasionally disagree with the price.")
+
+    # ---- Why this price? (SHAP explanation of the predicted price) ----
+    st.subheader("Why this price?")
+    with st.spinner("Explaining the prediction..."):
+        e = load_explainer().explain(x)
+    pct = e["grouped_pct"]
+
+    def effect(v):
+        return f"raises the price by about {v:.0f}%" if v >= 0 else f"lowers the price by about {-v:.0f}%"
+
+    st.write(
+        f"Compared with a typical plot (about **Rs {e['baseline_price']:,.0f}** per perch), "
+        f"this plot's **area and location** {effect(pct['Area & location'])}, its **land type** "
+        f"{effect(pct['Land type'])}, and its **size** {effect(pct['Land size'])}.")
+
+    chart_df = pd.DataFrame({"Factor": pct.index, "Effect on price (%)": pct.values.round(1)})
+    chart = alt.Chart(chart_df).mark_bar().encode(
+        x=alt.X("Effect on price (%):Q"),
+        y=alt.Y("Factor:N", sort=None, title=None),
+        color=alt.condition("datum['Effect on price (%)'] >= 0", alt.value("#1F4E79"), alt.value("#B45309")),
+        tooltip=["Factor", "Effect on price (%)"],
+    ).properties(height=150)
+    st.altair_chart(chart, width="stretch")
+
+    with st.expander("Top individual factors"):
+        top = e["contributions"].reindex(e["contributions"]["shap"].abs().sort_values(ascending=False).index).head(6)
+        st.dataframe(pd.DataFrame({
+            "Factor": top["name"],
+            "Value for this plot": [str(v) if isinstance(v, str) else f"{v:,.2f}".rstrip("0").rstrip(".") for v in top["value"]],
+            "Effect on price": [f"{(np.exp(c) - 1) * 100:+.0f}%" for c in top["shap"]],
+        }), hide_index=True, width="stretch")
+        st.caption("SHAP values: how much each factor moves this prediction away from a typical plot. "
+                   "Location features are fixed for each area, so read them together as 'location'.")

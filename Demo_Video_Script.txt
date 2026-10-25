@@ -1,0 +1,126 @@
+DEMO VIDEO SCRIPT - Colombo Land Price Estimator
+IT5514 Applied Machine Learning - target length 4:30 (must be 3-5 minutes)
+=====================================================================
+Lines starting with >> are what to show or click. Everything else is what you say.
+
+
+PART 1 - Introduction  (0:00 - 0:20)
+>> Show: Presentation.pptx, slide 1 (title).
+-------------------------------------
+This project predicts the asking price of land in the Colombo district. There's
+no public, plot-level price guide in Sri Lanka, so I built a machine learning
+model that estimates a fair price per perch from a plot's area, size and land
+type, and deployed it as a web app that also explains its predictions.
+
+
+PART 2 - How the project was implemented  (0:20 - 1:40)
+>> Show: VS Code with the Assignment_2 folder open in the Explorer.
+-------------------------------------------------------
+I built the project in four notebooks, plus an application and an automated
+pipeline.
+>> Click 01_data_preparation.ipynb.
+In the first notebook I cleaned the data: 4,494 Kaggle land listings. I chose
+price per perch as the target, fixed listings priced per acre, removed
+duplicates, and log-transformed the skewed prices before removing outliers,
+which left 4,275 clean listings. I also explored the data. Location is by far
+the strongest driver of price.
+>> Click 02_modelling.ipynb.
+In the second notebook I trained and tuned the models with five-fold
+cross-validation and compared them on a held-out test set.
+>> Click 03_unseen_areas.ipynb, then 04_explainability.ipynb.
+The third notebook tests the models on areas they have never seen, and the
+fourth explains them with SHAP, LIME and partial dependence plots.
+>> Click app.py, then explain.py.
+The final model is saved as a pickle file, which this Streamlit app loads. The
+explain file adds a SHAP explanation to every prediction.
+>> Click the src folder, then tests, then .github/workflows.
+For MLOps, the src folder holds a retraining pipeline with a quality gate, the
+tests folder holds 15 automated tests, and GitHub Actions runs those tests on
+every push. The project is on GitHub, and Streamlit Cloud redeploys the app
+automatically.
+
+
+PART 3 - Model accuracy  (1:40 - 2:30)
+>> Show: slide 4 (accuracy table). Point at each row as you mention it.
+--------------------------------------
+This table compares all the models. The baseline is Ridge regression. Random
+Forest and XGBoost were taught in the module, and tuning them lifted R-squared
+from about 0.83 with default settings to 0.86. The ranking uses cross-validated
+error on the training data, so the test set wasn't used to make choices. The
+final stacking model reaches an R-squared of 0.866 on the test set, with a
+median error of about 12 percent.
+
+
+PART 4 - Why this model  (2:30 - 3:00)
+>> Show: slide 4, right-hand panel.
+--------------------------------------
+My new algorithm is CatBoost, which wasn't covered in the lectures. The area
+column has 160 categories, many with very few listings, and CatBoost encodes
+them without leaking the target price. It tied for the best test score and was
+the best on unseen areas. The final model stacks Random Forest, XGBoost and
+CatBoost, because that combination had the lowest cross-validated error.
+
+
+PART 5 - Live app demo  (3:00 - 4:20)
+>> Switch to the browser with the live app already open.
+---------------------------------------------------------
+Here is the deployed app.
+>> Select "battaramulla", keep 10 perches and Residential, click "Estimate price".
+I select Battaramulla, 10 perches, residential. The model predicts about
+2.6 million rupees per perch, about 26 million in total, in the high band.
+>> Scroll down to "Why this price?".
+Below the price, the app explains the prediction. Compared with a typical plot,
+Battaramulla's location roughly doubles the price, while land type and size
+change it only slightly.
+>> Open "Top individual factors".
+The top factors are the distance from Colombo Fort, the area itself and the
+number of banks nearby.
+>> Scroll up. Select "kaduwela", click "Estimate price", scroll to the explanation.
+Kaduwela, further out, comes out at about 460,000 rupees per perch, in the low
+band, and here location lowers the price by about 63 percent.
+>> Optionally open the sidebar to show the model and its accuracy.
+
+
+PART 6 - Close  (4:20 - 4:30)
+>> Show: slide 8 (conclusion).
+-------------------------------
+In short: a tuned stacking ensemble with CatBoost as the new algorithm, explained
+with SHAP and deployed as a live app. Thank you for watching.
+
+
+=====================================================================
+HOW TO RECORD IT
+
+Before recording
+  1. Open the live app in the browser and run one prediction, so it's awake:
+     https://colombo-land-price-ml-5jekcfuzve5ezgfgjjpqoh.streamlit.app
+  2. Open Presentation.pptx (normal edit view is fine) and VS Code with the
+     Assignment_2 folder.
+  3. Close notifications (Windows: Focus assist / Do not disturb), and close
+     email and chat.
+  4. Use a headset or a quiet room. Do one 10-second test recording to check
+     your voice is clear.
+
+Recording (simplest option: Xbox Game Bar, built into Windows)
+  - Game Bar records one app window at a time, so record each part separately:
+      Part 1, 3, 4, 6 -> PowerPoint window
+      Part 2          -> VS Code window
+      Part 5          -> browser window
+  - Click into the window, press  Win + Alt + R  to start, and press it again to stop.
+  - Videos are saved in:  C:\Users\amal.ranawaka\Videos\Captures
+  - Join the clips in order with Clipchamp (built into Windows 11): New video ->
+    drag the clips in -> Export -> 1080p.
+
+Alternative (one continuous take)
+  - Use OBS Studio (free) or the Snipping Tool's video recording mode
+    (Win + Shift + R) to record the whole screen, and just switch windows as you go.
+
+After recording
+  - Check the length is between 3 and 5 minutes (aim for 4:30).
+  - Watch it once; check the app's numbers are readable (zoom the browser to
+    110-125% if not: Ctrl and +).
+  - Save as MP4, e.g. 269179J_Demo_Video.mp4, and upload it with the report.
+
+If running long
+  - Part 2: skip clicking 03 and 04 (just mention them).
+  - Part 5: skip the Kaduwela example.

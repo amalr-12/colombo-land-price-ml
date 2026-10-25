@@ -3,11 +3,9 @@ title: "Predicting Land Prices in the Colombo District"
 subtitle: "IT5514 Applied Machine Learning - Assignment 02"
 ---
 
-# Predicting Land Prices in the Colombo District
-
 **Module:** IT5514 Applied Machine Learning &nbsp;&nbsp;|&nbsp;&nbsp; **Assignment 02** &nbsp;&nbsp;|&nbsp;&nbsp; **Individual Assignment**
 
-**Name:** _______________________ &nbsp;&nbsp;&nbsp;&nbsp; **Index Number:** _______________________
+**Name:** Amal Ranawaka &nbsp;&nbsp;&nbsp;&nbsp; **Index Number:** 269179J
 
 ---
 
@@ -19,18 +17,21 @@ the same area, and asking prices for similar land can differ several times over.
 was to build a model that estimates a fair **asking price per perch** for a plot of land in the Colombo
 district, from its area, size, land type and the facilities around it.
 
-The work follows the assignment guideline given in class:
+The work follows the assignment guideline:
 
-1. A local (Sri Lankan) dataset was used.
-2. The data was analysed and preprocessed.
-3. Random Forest and XGBoost were applied, with hyperparameters designed and tuned rather than left at their
-   defaults, and other models suited to the problem were added (LightGBM, CatBoost and a stacked ensemble).
-4. Performance was evaluated and compared, and the results were interpreted, including model explainability
-   with SHAP and LIME.
-5. Inference was demonstrated on a listing kept aside from all training and testing, through a small
-   front-end application that loads the saved (pickled) model.
-6. The project was published to a GitHub repository with an automated MLOps pipeline (retraining, quality gate,
-   tests and continuous integration), and the application was deployed online.
+1. **Problem and dataset:** a real local problem and a real Sri Lankan dataset, with ethical data use
+   (Sections 1-3).
+2. **A new algorithm:** **CatBoost**, which was not covered in the lectures, was selected and justified
+   (Section 4.3). It was compared with the taught models (Random Forest and XGBoost), a linear baseline, LightGBM
+   and a stacked ensemble.
+3. **Training and evaluation:** train / validation / test split, tuned hyperparameters, and appropriate metrics
+   (Sections 4-5).
+4. **Explainability:** permutation feature importance, SHAP, LIME and partial dependence plots, including whether
+   the model's behaviour matches domain knowledge (Section 6).
+5. **Critical discussion:** limitations, data quality, risks of bias and ethical considerations (Section 8).
+6. **Front-end (bonus):** a deployed web application where users enter a plot and see its predicted price
+   **and an explanation** of it. The project is also published to GitHub with an automated MLOps pipeline
+   (Section 7).
 
 The main task is **regression** (predicting the price). As an extension, the same problem was also framed
 as **classification** into Low, Medium and High price bands.
@@ -43,8 +44,8 @@ files are:
 | `01_data_preparation.ipynb` | Cleaning and preprocessing (Section 3) |
 | `02_modelling.ipynb` | Models, tuning, comparison, interpretation, classification, inference (Sections 4-7) |
 | `03_unseen_areas.ipynb` | Check of how well the models work for areas they have never seen (Section 6.3) |
-| `04_explainability.ipynb` | SHAP and LIME explanations of the final model (Section 6.4) |
-| `app.py`, `catboost_wrapper.py` | Front-end application (Section 7) |
+| `04_explainability.ipynb` | SHAP, LIME, CatBoost SHAP and partial dependence plots (Sections 6.4-6.5) |
+| `app.py`, `explain.py`, `catboost_wrapper.py` | Front-end application with explanations (Section 7) |
 | `land_price_model.pkl` | Saved final models |
 
 ---
@@ -69,6 +70,12 @@ The file has **4,494 rows and 35 columns** with **no missing values**:
 
 The busiest areas are Ranala (350 listings), Makandana (270), Kaduwela (250), Kesbewa (206) and
 Piliyandala (204). These are suburban areas where large blocks of land are divided and sold plot by plot.
+
+**Ethical data use.** The data comes from publicly posted advertisements and was obtained from a public Kaggle
+dataset. It contains **no personal information**: no seller names, phone numbers, email addresses or exact
+property addresses. The location is recorded only at the level of the area (e.g. "Battaramulla"), and the
+location features were derived from public places such as schools, banks and hospitals. The data is used only for
+this academic project, and the source is credited.
 
 ---
 
@@ -147,7 +154,7 @@ all other residential plots, instead of being a rare category of its own.
 * **Area (`Address`)** has 160 values. One-hot encoding would add 160 sparse columns, so it was **target
   encoded** instead: each area is replaced by its average log price, using scikit-learn's `TargetEncoder`.
   The encoder uses internal cross-fitting, so a listing's own price is never used to encode it. CatBoost
-  handles the area natively (Section 4.3).
+  handles the area natively (Section 4.4).
 * **Scaling** was applied only for the linear baseline (Ridge regression), whose penalty treats all
   coefficients equally and therefore needs features on comparable scales. Tree-based models don't need
   scaling, because a split on "distance < 5 km" works the same whatever the units.
@@ -201,7 +208,7 @@ The right-hand side of Figure 3 shows that the location features are **strongly 
 Among the ten features most related to price, **22 of the 45 pairs have |ρ| above 0.7**; for example, distance
 from Fort and the number of banks within 2 km have ρ = −0.88. These features mostly describe the same thing:
 how central and built-up an area is. This multicollinearity is why Random Forest was allowed to consider only
-a subset of features at each split (Section 4.3), and why feature importances must be read for location as a
+a subset of features at each split (Section 4.4), and why feature importances must be read for location as a
 whole rather than feature by feature (Sections 6.1 and 6.4). It was also the first sign of the finding in
 Section 3.7, that the location features are recorded per area.
 
@@ -217,9 +224,17 @@ The final modelling table has **4,275 rows, 33 features and the log target**.
   else. It was not used in training, tuning or testing.
 * The remaining 4,274 rows were split **80/20** into training (3,419) and test (855) sets. The split was
   stratified by price thirds, so cheap and expensive land are equally represented in both sets.
-* All tuning and model **selection** used **5-fold cross-validation on the training set only**. Each model
-  was evaluated on the test set once, so the choice of final model is not biased towards whatever happened
-  to suit the test split.
+* **Validation** was done with **5-fold cross-validation inside the training set**: each candidate model and
+  hyperparameter setting was trained on four folds and scored on the fifth, five times over. All tuning and
+  model **selection** used these validation scores only. The **test set** was used once per model at the end,
+  so the choice of final model is not biased towards whatever happened to suit the test split.
+
+| Set | Size | Used for |
+|---|---|---|
+| Training | 3,419 listings | Fitting the models |
+| Validation | 5-fold CV within training | Hyperparameter tuning and model selection |
+| Test | 855 listings | Final, one-off performance check |
+| Held-out | 1 listing | Inference demonstration |
 
 **Metrics.** The main metric is the **RMSE of the log price**. Because the target is in logs, an RMSE of 0.37
 means predictions are typically within a factor of about e^0.37 ≈ 1.45 of the true price. R² on the log
@@ -233,16 +248,61 @@ percentage.
 | Model | Why it was included |
 |---|---|
 | **Ridge regression** | Baseline. If tree models can't beat a linear model clearly, their extra complexity isn't justified |
-| **Random Forest** | Required. Averages many deep, de-correlated trees; robust to noise and needs little preprocessing |
-| **XGBoost** | Required. Gradient boosting: trees built one after another, each correcting the errors of the previous ones |
+| **Random Forest** | Taught in the module (comparison model). Averages many deep, de-correlated trees; robust to noise |
+| **XGBoost** | Taught in the module (comparison model). Gradient boosting: each tree corrects the previous ones' errors |
 | **LightGBM** | Another gradient boosting library that grows trees leaf-wise; a check that XGBoost's result isn't implementation-specific |
-| **CatBoost** | Built for categorical features. The most informative feature, `Address`, has 160 categories, and CatBoost encodes them with ordered target statistics |
+| **CatBoost** | **The new algorithm, not covered in lectures** (Section 4.3). Built for categorical features such as the 160-category `Address` |
 | **Stacking** | Combines the tuned RF, XGBoost and CatBoost with a Ridge meta-model; helps when the base models make different mistakes |
 
 Deep learning was not used, following the module guideline, and with 4,000 tabular rows it would not be
 expected to beat gradient boosting anyway.
 
-### 4.3 Hyperparameter design
+### 4.3 Selection of a new algorithm: CatBoost
+
+**CatBoost** (Prokhorenkova et al., 2018) is a gradient-boosting algorithm from Yandex. It was not covered in
+the lectures, and it was chosen as the project's new algorithm for three reasons.
+
+**Why it was selected.**
+
+1. **The data's most important feature is a high-cardinality category.** `Address` has 160 areas, and 88 of them
+   have fewer than 10 listings (Section 3.8). One-hot encoding would create 160 sparse columns, and plain target
+   encoding risks leaking each listing's own price into its features. CatBoost is designed for exactly this case.
+2. **It is robust on small, noisy tabular data.** With about 3,400 training rows of noisy asking prices,
+   overfitting is the main risk, and CatBoost's tree structure and ordered boosting are built to reduce it.
+3. **It fits the guideline's restrictions.** It's a classical (non-deep-learning) method for tabular data.
+
+**How it works.** CatBoost builds an ensemble of trees by gradient boosting, like XGBoost, but differs in three
+ways:
+
+* **Ordered target statistics.** Each category is replaced by the average target of the listings that come
+  *before* it in a random ordering of the data, so a listing's own price is never used to encode its area.
+  This removes the target leakage of naive target encoding.
+* **Ordered boosting.** The same idea is applied to the boosting itself, which reduces "prediction shift", a
+  subtle form of overfitting in standard gradient boosting.
+* **Symmetric (oblivious) trees.** Every node at the same depth uses the same split. These balanced trees act as
+  a strong regulariser and make predictions very fast.
+
+**How it differs from the standard models taught in the module.**
+
+| Model | How it predicts | Handling of the 160-category `Address` | Main difference from CatBoost |
+|---|---|---|---|
+| Decision tree | One tree, greedy splits | Needs encoding; one tree overfits rare areas | CatBoost averages hundreds of boosted, regularised trees |
+| Linear / logistic regression | Weighted sum of features | Needs one-hot (160 columns); no interactions | CatBoost captures non-linear effects and interactions automatically |
+| k-NN | Average of the nearest listings | Needs a distance between categories; sensitive to scaling | CatBoost learns which features matter; no distance or scaling needed |
+| Random Forest (taught) | Averages independent deep trees | Needs encoding beforehand | Trees are built sequentially to fix errors; categories handled natively |
+| XGBoost (taught) | Boosted trees | Needs encoding beforehand | Ordered target statistics and ordered boosting; symmetric trees |
+
+**How it performed.**
+
+* CatBoost reached a **test R² of 0.866**, tied for the best of all models (Section 5.1).
+* It **generalised best to areas never seen in training** (R² 0.703 against 0.54 for the linear baseline,
+  Section 6.3), because its category handling treats an unknown area cleanly as "no information".
+* In the final stacked ensemble it carries a weight of **0.30** (Section 5.2).
+* Its exact SHAP explanations agree closely with those of the final model (Section 6.5).
+
+CatBoost is therefore both the project's new algorithm and a core part of the deployed model.
+
+### 4.4 Hyperparameter design
 
 Every model was first trained with **library defaults**, then tuned with `RandomizedSearchCV` (5-fold CV,
 minimising log RMSE). The search ranges were chosen for this dataset of about 3,400 training rows and
@@ -522,6 +582,57 @@ methods work in very different ways.
   occurs in the data. This is why the grouped SHAP view is the most reliable reading, and why individual
   location features should be read as a group.
 
+### 6.5 What CatBoost learned, and partial dependence
+
+**CatBoost SHAP.** Because CatBoost is a tree model, its SHAP values can be computed **exactly** with TreeSHAP,
+using CatBoost's built-in calculation. No sampling is needed, unlike the stacked model. The contributions plus
+the baseline reproduce CatBoost's predictions exactly.
+
+![Figure 13: Exact SHAP values of CatBoost for 120 test listings (red = high feature value, blue = low)](figures/fig11_catboost_shap.png)
+
+| Feature group | CatBoost (exact SHAP) | Final stacked model |
+|---|---|---|
+| Location (area + 27 distance/count features) | **86.5%** | 87.1% |
+| Land type | 9.0% | 8.6% |
+| Land size | 4.6% | 4.3% |
+
+CatBoost and the final model agree almost exactly on what drives prices. The interesting difference is in
+**how** CatBoost uses location. Its top features are distance from Fort, distance to a grade-A government
+school, distance to a private hospital and the number of banks within 2 km. The stacked model relies more on
+the area name. Because CatBoost's encoding of `Address` is deliberately conservative (ordered target
+statistics), it learns location through the interpretable distance features. This is also why it generalises
+best to unseen areas.
+
+**Partial dependence.** A partial dependence plot (PDP; Friedman, 2001) shows the model's average prediction as
+one feature is varied, with the other features left as they are in the data. It was computed on 300 test
+listings.
+
+![Figure 14: Partial dependence of the final model on distance from Fort, land size and banks within 2 km](figures/fig12_pdp.png)
+
+* **Distance from Fort:** going from 6.5 km to 36 km roughly **halves** the average predicted price, from about
+  Rs 2.17 million to Rs 0.99 million per perch. The steepest fall is between about 14 and 18 km, roughly where
+  the city gives way to the outer suburbs.
+* **Banks within 2 km:** the price rises from about Rs 1.54 million (no banks) to Rs 1.88 million (43 banks),
+  mostly between 8 and 13 banks. This is the threshold between a residential suburb and a commercial town centre.
+* **Land size:** almost flat (about +8% from 6 to 80 perches). Once location is accounted for, plot size has
+  little effect on the price per perch.
+
+As with SHAP and LIME, location features never vary on their own within an area, so these curves show the
+**direction** the model has learned rather than exact causal effects.
+
+### 6.6 Does the model agree with domain knowledge?
+
+| What the model learned | Domain knowledge (Colombo land market) | Agrees? |
+|---|---|---|
+| Price falls steeply with distance from Colombo Fort | Colombo's central business district and Colombo 1-7 have the highest land values; prices fall towards the suburbs | **Yes** |
+| More banks and supermarkets nearby means higher prices | Commercial town centres (e.g. Nugegoda, Maharagama) command a premium | **Yes** |
+| Closeness to grade-A government schools raises prices | Demand for popular school catchment areas is a well-known driver of Sri Lankan property prices | **Yes** |
+| Commercial land is priced higher; "Other" land lower | Commercial plots earn more; unusual plot types sell at a discount | **Yes** |
+| Larger plots cost more *per perch* (raw data) | Bulk land is usually *cheaper* per perch | **No, explained:** the PDP shows almost no size effect once location is held fixed. The raw pattern comes from large plots being more common in built-up areas |
+
+Overall, the model has learned the patterns a local estate agent would expect. The one counter-intuitive pattern
+in the raw data turns out to come from location, not from plot size.
+
 ---
 
 ## 7. Inference and Application
@@ -555,12 +666,28 @@ band**. The model, the feature list, the band edges and each area's location val
 for information only. Section 3.7 showed they are fixed per area, so letting the user edit them would create
 combinations the model never saw.
 
-Two example predictions for a 10-perch residential plot:
+**Explanations in the application ("Why this price?").** After each prediction, the application explains it with
+SHAP (`explain.py`), so users see *why* a price was suggested, not just the number:
 
-| Area | Predicted price per perch | Band |
-|---|---|---|
-| Kollupitiya (central Colombo) | about Rs 13.1 million | High |
-| Kaduwela (suburban) | about Rs 460,000 | Low |
+* **A plain-language sentence** comparing the plot with a typical plot. For example, for Battaramulla: *"Compared
+  with a typical plot (about Rs 1,357,710 per perch), this plot's area and location raises the price by about
+  104%, its land type lowers the price by about 5%, and its size lowers the price by about 2%."*
+* **A bar chart** of those three effects (area & location, land type, land size).
+* **A table of the top individual factors.** For Battaramulla these are distance from Colombo Fort (+26%), the
+  area itself (+22%) and the number of banks within 2 km (+7%).
+
+The explanation uses the same model-agnostic SHAP method as Section 6.4, applied to the final stacked model. The
+"typical plot" baseline is the average prediction over a typical plot in 40 areas. Because the model predicts
+log price, each contribution is shown as a percentage effect on the price. An explanation takes about half a
+second. The SHAP values add up exactly to the prediction, and an automated test checks this.
+
+Example predictions for a 10-perch residential plot:
+
+| Area | Predicted price per perch | Band | Main reason (from the explanation) |
+|---|---|---|---|
+| Kollupitiya (central Colombo) | about Rs 13.1 million | High | Central location close to Fort |
+| Battaramulla (11 km from Fort) | about Rs 2.58 million | High | Location raises the price by about 104% |
+| Kaduwela (18 km from Fort) | about Rs 460,000 | Low | Location lowers the price by about 63% |
 
 To run the application locally: `pip install -r requirements.txt`, then `streamlit run app.py` from the
 `Assignment_2` folder. It is also deployed online (Section 7.3).
@@ -593,9 +720,10 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
 * **Quality gate.** A retrained model replaces the deployed one only if its test R² is at least 0.85 and not
   more than 0.005 below the current model. In testing, the gate accepted the real retrained model and rejected
   candidates with R² 0.80 and 0.858.
-* **Automated tests.** 14 tests check the data rules (row count, no duplicates, no leaky columns), the model's
+* **Automated tests.** 15 tests check the data rules (row count, no duplicates, no leaky columns), the model's
   behaviour (the held-out listing reproduces the notebook's prediction; central Colombo is priced above the
-  suburbs; all predictions are finite) and that the app starts and returns a prediction.
+  suburbs; all predictions are finite; explanations add up to the prediction) and that the app starts and
+  returns a prediction with its explanation.
 * **Continuous integration.** A GitHub Actions workflow runs the tests on Linux on every push. The first run
   passed, confirming that the model trained on Windows loads and predicts correctly with the pinned library
   versions used by the cloud deployment.
@@ -608,22 +736,62 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
 
 ---
 
-## 8. Limitations and Future Work
+## 8. Critical Discussion
+
+### 8.1 Limitations of the model
+
+* **Location is recorded per area, not per plot** (Section 3.7). This is the biggest limitation. Two plots in
+  the same area, one on a main road and one down a narrow lane, look identical to the model. As a result,
+  accuracy is limited by the data rather than the algorithm: all tuned models score within 0.005 of each other.
+* **Weaker on unknown areas.** For areas not in the training data, R² falls from about 0.83 to 0.70
+  (Section 6.3), so the application only offers known areas.
+* **Typical error of about 12%**, with larger errors for the rare, very expensive plots in central Colombo,
+  which are pulled towards their area's average (Section 5.2).
+
+### 8.2 Data quality issues
 
 * **Asking prices, not sale prices.** Advertisements show what sellers hope to get. Actual transaction prices
   are usually lower and are not public in Sri Lanka.
-* **The data is from 2021.** Since then, the 2022 economic crisis and high inflation have changed land prices
-  considerably, so the absolute rupee values are out of date. The **relative** patterns (location, size and
-  type effects) are more likely to still hold. The model should be retrained on recent listings before
-  practical use.
-* **Location is recorded per area, not per plot** (Section 3.7). This is the biggest limitation. Two plots in
-  the same area, one on a main road and one down a narrow lane, look identical to the model. Geocoding each
-  listing would let the 27 location features describe the actual plot.
-* **Missing plot features** such as road frontage, road width, shape, slope and flood risk are known to
-  affect Sri Lankan land prices strongly but are not in the dataset.
+* **Errors in the source data:** a price-scale error (Section 3.2), 198 duplicates (Section 3.3) and 21
+  implausible prices (Section 3.4) had to be corrected or removed.
 * **Repeated developer listings.** Many plots from the same block, advertised at the same price, can appear
   in both the training and test sets. This makes the seen-area scores somewhat optimistic for genuinely new
   developments.
+* **Out of date.** The data is from mid-2021. The 2022 economic crisis and high inflation have changed land prices
+  considerably, so rupee values are out of date, though the relative patterns are more likely to hold.
+* **Missing plot features** such as road frontage, road width, shape, slope and flood risk are known to affect
+  Sri Lankan land prices strongly but are not in the dataset.
+
+### 8.3 Risks of bias or unfairness
+
+* **Uneven coverage.** 88 of the 160 areas have fewer than 10 listings, while a few suburbs (Ranala, Makandana,
+  Kaduwela) have hundreds. Predictions for under-represented areas are less reliable. A buyer or seller there
+  could be given a misleading price without knowing it.
+* **Over-representation of developer blocks.** Suburban plots sold in batches by developers dominate the data, so
+  the model reflects developers' pricing more than private sellers'.
+* **Reinforcing existing inequality.** The model learns that central, well-served areas are expensive and outer
+  areas cheap. Used to set prices, it could reinforce these gaps, for example by systematically undervaluing land
+  in less developed areas.
+* **Asking-price bias.** If some sellers systematically over-ask (or under-ask), the model inherits that bias.
+
+### 8.4 Potential real-world impact and ethical considerations
+
+* **Positive impact:** a free, transparent first estimate could help ordinary buyers and sellers judge whether an
+  advertised price is reasonable, in a market with no public price index.
+* **Risk of misuse:** the model must not be used for official valuations, loan or mortgage decisions, tax
+  assessment or compensation, because it is trained on 2021 asking prices with area-level location only. The
+  application states this ("a rough guide, not a valuation").
+* **Price anchoring:** widely used price estimates can pull the market towards themselves. Any public tool should
+  show its uncertainty and its data date clearly.
+* **Transparency:** the application explains every prediction (Section 7.2), so users can see *why* a price was
+  suggested rather than trusting a black box.
+* **Privacy:** the data contains no personal information (Section 2), and the project uses public data only.
+
+### 8.5 Future work
+
+Per-plot coordinates, recent (post-2022) prices, actual sale prices and plot features such as road access would
+improve the model more than any further tuning. Regular retraining through the existing pipeline (Section 7.3)
+would keep it up to date.
 
 ---
 
@@ -633,7 +801,9 @@ A model was built to estimate the asking price per perch of land in the Colombo 
 listings. Preprocessing corrected a price-scale error in the data, removed duplicates, and handled the
 heavily skewed target with a log transform, so that only 21 true outliers had to be removed instead of 297
 genuine high-value listings. Random Forest and XGBoost were tuned instead of used with defaults, which
-improved R² from about 0.83 to 0.86, and LightGBM, CatBoost and a stacked ensemble were added. The stacked
+improved R² from about 0.83 to 0.86. **CatBoost**, an algorithm not covered in the lectures, was selected
+for its native handling of the 160-category area feature. It matched the best test accuracy (R² 0.866) and
+generalised best to unseen areas, and it forms part of the final stacked ensemble. The stacked
 ensemble was selected as the final model on cross-validation, reaching an R² of 0.866 on the log scale and a
 median error of about 12%. A Random Forest classifier assigned Low, Medium and High price bands with 90.5%
 accuracy.
@@ -651,10 +821,7 @@ model more than any further tuning.
 
 ## Use of AI Tools
 
-[**To review and adjust before submission.**] In line with the module guideline, AI assistance (Claude) was
-used for coding support and for generating the front-end application. The modelling decisions, results and
-interpretation were reviewed and understood by the author, and all numbers in this report come from the
-accompanying notebooks.
+AI assistance was used for coding support and for generating the front-end application.
 
 ---
 
@@ -676,5 +843,7 @@ accompanying notebooks.
 8. Ribeiro, M. T., Singh, S. and Guestrin, C. (2016). "Why Should I Trust You?": Explaining the Predictions of
    Any Classifier. *Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data
    Mining*, 1135-1144.
-9. IT5514 Applied Machine Learning lecture notes and lab sheets: Decision Trees and Random Forest, XGBoost,
+9. Friedman, J. H. (2001). Greedy Function Approximation: A Gradient Boosting Machine. *Annals of Statistics*,
+   29(5), 1189-1232.
+10. IT5514 Applied Machine Learning lecture notes and lab sheets: Decision Trees and Random Forest, XGBoost,
    and the feature engineering lab (IQR outlier method).

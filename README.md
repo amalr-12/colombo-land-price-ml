@@ -40,7 +40,7 @@ pip install -r requirements.txt          # app + tests
 streamlit run app.py                     # front-end at http://localhost:8501
 
 pip install -r requirements-dev.txt      # notebooks + pipeline
-python -m pytest                         # 14 tests: data rules, model behaviour, app smoke test
+python -m pytest                         # 15 tests: data rules, model behaviour, explanations, app smoke test
 python run_pipeline.py                   # retrain a candidate model into artifacts/
 python run_pipeline.py --promote         # ...and replace the deployed model if it passes the quality gate
 ```

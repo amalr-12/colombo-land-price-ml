@@ -48,5 +48,15 @@ def test_band_classifier_returns_valid_bands(bundle):
     assert bands[0] == 2 and bands[2] == 0  # central = High, suburban = Low
 
 
+def test_explanation_adds_up_to_prediction(bundle):
+    from explain import PriceExplainer
+    x = _row(bundle, "battaramulla")
+    e = PriceExplainer(bundle).explain(x)
+    # SHAP: baseline + contributions = the model's own (log) prediction
+    assert np.isclose(e["prediction_log"], bundle["regressor"].predict(x)[0], atol=1e-6)
+    assert set(e["grouped_pct"].index) == {"Area & location", "Land type", "Land size"}
+    assert e["grouped_pct"]["Area & location"] > 0  # Battaramulla is pricier than a typical plot
+
+
 def test_reported_accuracy_meets_quality_bar(bundle):
     assert bundle["test_metrics"]["Test R2 (log)"] >= 0.85
