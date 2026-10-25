@@ -651,7 +651,7 @@ model more than any further tuning.
 
 ## Use of AI Tools
 
- AI assistance was used for generating the front-end application. 
+AI assistance was used for coding support and for generating the front-end application. 
 
 ---
 
