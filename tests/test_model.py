@@ -6,7 +6,8 @@ SEED = 42
 
 
 def _row(bundle, area, size=10.0, types=("Residential",)):
-    row = {"Address": area, "Land_size(Perches)": size, **bundle["area_defaults"].loc[area].to_dict()}
+    # area defaults first, so the requested size isn't overwritten by the area's median size
+    row = {**bundle["area_defaults"].loc[area].to_dict(), "Address": area, "Land_size(Perches)": size}
     for t in bundle["land_types"]:
         row[t] = int(t.removeprefix("is_") in types)
     return pd.DataFrame([row])[bundle["features"]]
