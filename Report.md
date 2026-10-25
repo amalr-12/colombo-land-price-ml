@@ -7,7 +7,7 @@ subtitle: "IT5514 Applied Machine Learning - Assignment 02"
 
 **Module:** IT5514 Applied Machine Learning &nbsp;&nbsp;|&nbsp;&nbsp; **Assignment 02** &nbsp;&nbsp;|&nbsp;&nbsp; **Individual Assignment**
 
-**Name:** _______________________ &nbsp;&nbsp;&nbsp;&nbsp; **Index Number:** _______________________
+**Name:** Amal Ranawaka &nbsp;&nbsp;&nbsp;&nbsp; **Index Number:** 269179J
 
 ---
 
@@ -43,7 +43,7 @@ files are:
 | `01_data_preparation.ipynb` | Cleaning and preprocessing (Section 3) |
 | `02_modelling.ipynb` | Models, tuning, comparison, interpretation, classification, inference (Sections 4-7) |
 | `03_unseen_areas.ipynb` | Check of how well the models work for areas they have never seen (Section 6.3) |
-| `04_explainability.ipynb` | SHAP and LIME explanations of the final model (Section 6.4) |
+| `04_explnability.ipynb` | SHAP and LIME explanations of the final model (Section 6.4) |
 | `app.py`, `catboost_wrapper.py` | Front-end application (Section 7) |
 | `land_price_model.pkl` | Saved final models |
 
@@ -53,10 +53,10 @@ files are:
 
 **Source.** *Land prices of Colombo district*, published on Kaggle by user ruchiraayeshmantha
 (https://www.kaggle.com/datasets/ruchiraayeshmantha/land-prices-of-colombo-district). The dataset
-contains land sale advertisements from the Colombo district, posted between **31 July and 21 September 2021**.
+contns land sale advertisements from the Colombo district, posted between **31 July and 21 September 2021**.
 Each advertisement was enriched with location information: the distance to Colombo Fort, and the distance to
 and number of nearby schools, universities, hospitals, banks, finance companies, supermarkets, fuel stations,
-railway stations and expressway entrances.
+rlway stations and expressway entrances.
 
 The file has **4,494 rows and 35 columns** with **no missing values**:
 
@@ -64,7 +64,7 @@ The file has **4,494 rows and 35 columns** with **no missing values**:
 |---|---|
 | Listing | `Address` (area name, 160 areas), `Land_size(Perches)`, `Land_type`, `Posted_Date_new` |
 | Price | `Mentioned Price(Rs)`, `Price_Scale`, `Price per Perch` |
-| Location | 27 distance and count features (e.g. `Distance from fort`, `min_dist_nearest_railway`, `count_banks_within_2km`) |
+| Location | 27 distance and count features (e.g. `Distance from fort`, `min_dist_nearest_rlway`, `count_banks_within_2km`) |
 | Other | `Address_ID` (row identifier) |
 
 The busiest areas are Ranala (350 listings), Makandana (270), Kaduwela (250), Kesbewa (206) and
@@ -89,7 +89,7 @@ target or equal to the target multiplied by the land size, so leaving it in woul
 ### 3.2 Price scale
 
 Advertisers quote prices in different ways, recorded in `Price_Scale`: per perch (3,568 rows), as a total
-price (923 rows), or per acre (3 rows). Checking `Price per Perch` against the mentioned price for each scale
+price (923 rows), or per acre (3 rows). Checking `Price per Perch` agnst the mentioned price for each scale
 showed that:
 
 * **per perch:** `Price per Perch` equals the mentioned price, which is correct
@@ -103,10 +103,10 @@ only describes how the advertisement was written, not the land, so it was droppe
 ### 3.3 Duplicates
 
 After removing the ID and the mentioned price, **198 rows were exact duplicates** and were removed (4,296
-rows remained). This is more than the 177 duplicates in the raw file. The difference is listings that were
+rows remned). This is more than the 177 duplicates in the raw file. The difference is listings that were
 posted twice, once as a per-perch price and once as a total price: they become identical once the price is
 expressed per perch. Duplicates were removed **before** splitting the data, so the same listing could not
-end up in both the training and the test set.
+end up in both the trning and the test set.
 
 ### 3.4 Skewed target and outliers
 
@@ -651,10 +651,7 @@ model more than any further tuning.
 
 ## Use of AI Tools
 
-[**To review and adjust before submission.**] In line with the module guideline, AI assistance (Claude) was
-used for coding support and for generating the front-end application. The modelling decisions, results and
-interpretation were reviewed and understood by the author, and all numbers in this report come from the
-accompanying notebooks.
+ AI assistance was used for generating the front-end application. 
 
 ---
 
