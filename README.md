@@ -3,7 +3,7 @@
 Predicts the **asking price per perch** of land in the Colombo district, Sri Lanka, from its area, size and land
 type. IT5514 Applied Machine Learning, final assignment.
 
-**Live app:** _link added after deployment_
+**Live app:** https://colombo-land-price-ml-5jekcfuzve5ezgfgjjpqoh.streamlit.app
 
 | | |
 |---|---|

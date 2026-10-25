@@ -29,6 +29,8 @@ The work follows the assignment guideline given in class:
    with SHAP and LIME.
 5. Inference was demonstrated on a listing kept aside from all training and testing, through a small
    front-end application that loads the saved (pickled) model.
+6. The project was published to a GitHub repository with an automated MLOps pipeline (retraining, quality gate,
+   tests and continuous integration), and the application was deployed online.
 
 The main task is **regression** (predicting the price). As an extension, the same problem was also framed
 as **classification** into Low, Medium and High price bands.
@@ -560,8 +562,49 @@ Two example predictions for a 10-perch residential plot:
 | Kollupitiya (central Colombo) | about Rs 13.1 million | High |
 | Kaduwela (suburban) | about Rs 460,000 | Low |
 
-To run the application: `pip install streamlit scikit-learn xgboost catboost pandas`, then
-`streamlit run app.py` from the `Assignment_2` folder.
+To run the application locally: `pip install -r requirements.txt`, then `streamlit run app.py` from the
+`Assignment_2` folder. It is also deployed online (Section 7.3).
+
+### 7.3 Repository, deployment and MLOps
+
+The project is published in a private GitHub repository (github.com/amalr-12/colombo-land-price-ml) and the
+application is deployed on Streamlit Community Cloud:
+
+**Live application:** https://colombo-land-price-ml-5jekcfuzve5ezgfgjjpqoh.streamlit.app
+
+The deployed app gives exactly the same predictions as the local model (for example, a 10-perch residential plot
+in Udahamulla: Rs 1,999,440 per perch, High band, both locally and online).
+
+To make the model maintainable rather than a one-off notebook result, a small MLOps pipeline was added:
+
+```
+raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + metrics.json
+                                                                  |
+                                   src/promote.py (quality gate) <-+
+                          R2 >= 0.85 and not worse than deployed by > 0.005?
+                            yes -> replace land_price_model.pkl (old one backed up)
+                            no  -> reject; deployed model unchanged
+```
+
+* **Reproducible retraining.** `run_pipeline.py` rebuilds the model from the raw Excel file with the tuned
+  hyperparameters stored in `config/params.json`, using the same seed, held-out listing and split as the
+  notebooks. It took 4.4 minutes and reproduced the notebook: identical cleaned data, and test R² 0.8659
+  against 0.8661.
+* **Quality gate.** A retrained model replaces the deployed one only if its test R² is at least 0.85 and not
+  more than 0.005 below the current model. In testing, the gate accepted the real retrained model and rejected
+  candidates with R² 0.80 and 0.858.
+* **Automated tests.** 14 tests check the data rules (row count, no duplicates, no leaky columns), the model's
+  behaviour (the held-out listing reproduces the notebook's prediction; central Colombo is priced above the
+  suburbs; all predictions are finite) and that the app starts and returns a prediction.
+* **Continuous integration.** A GitHub Actions workflow runs the tests on Linux on every push. The first run
+  passed, confirming that the model trained on Windows loads and predicts correctly with the pinned library
+  versions used by the cloud deployment.
+* **Retraining on demand.** A second workflow, started manually from GitHub's Actions tab, runs the full
+  pipeline in the cloud and uploads the candidate model and its metrics for review.
+* **Continuous deployment.** Streamlit Community Cloud redeploys the app automatically whenever the `main`
+  branch changes.
+* **Pinned dependencies.** `requirements.txt` fixes the exact library versions, because a pickled model must be
+  loaded with the versions it was trained with.
 
 ---
 
