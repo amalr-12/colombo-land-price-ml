@@ -1,5 +1,5 @@
 DEMO VIDEO SCRIPT - Colombo Land Price Estimator
-IT5514 Applied Machine Learning - target length 4:30 (must be 3-5 minutes)
+IT5514 Applied Machine Learning - target length 4:40 (must be 3-5 minutes)
 =====================================================================
 Lines starting with >> are what to show or click. Everything else is what you say.
 
@@ -24,8 +24,7 @@ perch as the target, a unit error fixed, duplicates removed, and prices
 log-transformed before removing outliers, leaving 4,275 clean listings. The
 second trains and tunes the models with five-fold cross-validation. The third
 tests them on areas they have never seen, the fourth explains them with SHAP,
-LIME and partial dependence plots, and the fifth trains NGBoost, my new
-algorithm. The trained models are saved as pickle files, which the Streamlit
+LIME and partial dependence plots, and the fifth trains NGBoost, The trained models are saved as pickle files, which the Streamlit
 app loads, and the explain file adds the SHAP explanation and the NGBoost price
 range to every prediction.
 >> Scroll down to the "MLOps pipeline" diagram in the README.
@@ -50,8 +49,7 @@ R-squared of 0.866 on the test set, with a median error of about 12 percent.
 PART 4 - Why this model  (2:20 - 2:50)
 >> Show: slide 4, right-hand panel.
 --------------------------------------
-My new algorithm is NGBoost. Asking prices are noisy, so a single number hides
-the uncertainty. NGBoost predicts a whole probability distribution of the
+My new algorithm is NGBoost. NGBoost predicts a whole probability distribution of the
 price, so it gives a range. It ranks third of eight on cross-validated error,
 and its 80 percent ranges contain 82 percent of actual prices. The final price
 model stacks Random Forest, XGBoost and CatBoost, because that had the lowest
@@ -62,7 +60,7 @@ PART 5 - Live app demo  (2:50 - 4:10)
 >> Switch to the browser with the live app already open.
 ---------------------------------------------------------
 Here is the deployed app.
->> Select "battaramulla", keep 10 perches and Residential, click "Estimate price".
+>> Select a town lets take "battaramulla", keep 10 perches and Residential, click "Estimate price".
 I select Battaramulla, 10 perches, residential. The model predicts about
 2.6 million rupees per perch, about 26 million in total, in the high band.
 >> Point at the blue "Likely range (80%)" box.
@@ -81,12 +79,15 @@ band, and here location lowers the price by about 63 percent.
 >> Optionally open the sidebar to show the model and its accuracy.
 
 
-PART 6 - Close  (4:10 - 4:20)
+PART 6 - Close  (4:10 - 4:40)
 >> Show: slide 8 (conclusion).
 -------------------------------
-In short: a tuned stacking ensemble for the price, NGBoost as the new algorithm
-for the price range, explained with SHAP and deployed as a live app. Thank you
-for watching.
+To conclude: this project turns over 4,000 real Colombo listings into a land
+price guide that anyone can use. The key finding is that location drives almost
+90 percent of the price, so better data, not a better algorithm, is what would
+improve it most. That's why the app gives more than one number: a likely range
+and the reasons behind it, so buyers and sellers can judge a price for
+themselves. Thank you for watching.
 
 
 =====================================================================
@@ -118,7 +119,7 @@ Alternative (one continuous take)
     (Win + Shift + R) to record the whole screen, and just switch windows as you go.
 
 After recording
-  - Check the length is between 3 and 5 minutes (aim for 4:30).
+  - Check the length is between 3 and 5 minutes (aim for 4:40).
   - Watch it once; check the app's numbers are readable (zoom the browser to
     110-125% if not: Ctrl and +).
   - Save as MP4, e.g. 269179J_Demo_Video.mp4, and upload it with the report.
