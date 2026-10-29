@@ -30,4 +30,5 @@ jobs:
           name: candidate-model
           path: |
             artifacts/land_price_model.pkl
+            artifacts/ngboost_model.pkl
             artifacts/metrics.json

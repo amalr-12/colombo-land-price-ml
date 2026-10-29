@@ -10,7 +10,8 @@ PART 1 - Introduction  (0:00 - 0:20)
 This project predicts the asking price of land in the Colombo district. There's
 no public, plot-level price guide in Sri Lanka, so I built a machine learning
 model that estimates a fair price per perch from a plot's area, size and land
-type, and deployed it as a web app that also explains its predictions.
+type, with a likely price range, and deployed it as a web app that also explains
+its predictions.
 
 
 PART 2 - How the project was implemented  (0:20 - 1:40)
@@ -27,15 +28,17 @@ the strongest driver of price.
 >> Click 02_modelling.ipynb.
 In the second notebook I trained and tuned the models with five-fold
 cross-validation and compared them on a held-out test set.
->> Click 03_unseen_areas.ipynb, then 04_explainability.ipynb.
-The third notebook tests the models on areas they have never seen, and the
-fourth explains them with SHAP, LIME and partial dependence plots.
+>> Click 03_unseen_areas.ipynb, 04_explainability.ipynb, then 05_ngboost.ipynb.
+The third notebook tests the models on areas they have never seen, the fourth
+explains them with SHAP, LIME and partial dependence plots, and the fifth
+trains NGBoost, my new algorithm.
 >> Click app.py, then explain.py.
-The final model is saved as a pickle file, which this Streamlit app loads. The
-explain file adds a SHAP explanation to every prediction.
+The models are saved as pickle files, which this Streamlit app loads. The
+explain file adds a SHAP explanation and the NGBoost price range to every
+prediction.
 >> Click the src folder, then tests, then .github/workflows.
 For MLOps, the src folder holds a retraining pipeline with a quality gate, the
-tests folder holds 15 automated tests, and GitHub Actions runs those tests on
+tests folder holds 17 automated tests, and GitHub Actions runs those tests on
 every push. The project is on GitHub, and Streamlit Cloud redeploys the app
 automatically.
 
@@ -43,22 +46,24 @@ automatically.
 PART 3 - Model accuracy  (1:40 - 2:30)
 >> Show: slide 4 (accuracy table). Point at each row as you mention it.
 --------------------------------------
-This table compares all the models. The baseline is Ridge regression. Random
-Forest and XGBoost were taught in the module, and tuning them lifted R-squared
-from about 0.83 with default settings to 0.86. The ranking uses cross-validated
-error on the training data, so the test set wasn't used to make choices. The
-final stacking model reaches an R-squared of 0.866 on the test set, with a
-median error of about 12 percent.
+This table compares all the models. Ridge, Random Forest, XGBoost, LightGBM,
+CatBoost and stacking were taught in the module; NGBoost, highlighted in blue,
+is my new algorithm. Tuning lifted R-squared from about 0.83 with default
+settings to 0.86. The ranking uses cross-validated error on the training data,
+so the test set wasn't used to make choices. The final stacking model reaches an
+R-squared of 0.866 on the test set, with a median error of about 12 percent.
 
 
 PART 4 - Why this model  (2:30 - 3:00)
 >> Show: slide 4, right-hand panel.
 --------------------------------------
-My new algorithm is CatBoost, which wasn't covered in the lectures. The area
-column has 160 categories, many with very few listings, and CatBoost encodes
-them without leaking the target price. It tied for the best test score and was
-the best on unseen areas. The final model stacks Random Forest, XGBoost and
-CatBoost, because that combination had the lowest cross-validated error.
+My new algorithm is NGBoost, which wasn't covered in the lectures. Every taught
+model predicts one number, but asking prices are noisy, so a single number
+hides the uncertainty. NGBoost predicts a whole probability distribution of the
+price, so it gives a range. It ranks third of eight on cross-validated error,
+and its 80 percent ranges contain 82 percent of actual prices. The final price
+model stacks Random Forest, XGBoost and CatBoost, because that had the lowest
+cross-validated error, and NGBoost adds the range.
 
 
 PART 5 - Live app demo  (3:00 - 4:20)
@@ -68,6 +73,9 @@ Here is the deployed app.
 >> Select "battaramulla", keep 10 perches and Residential, click "Estimate price".
 I select Battaramulla, 10 perches, residential. The model predicts about
 2.6 million rupees per perch, about 26 million in total, in the high band.
+>> Point at the blue "Likely range (80%)" box.
+NGBoost adds a likely range: 80 percent likely between about 1.5 and 4 million
+rupees per perch.
 >> Scroll down to "Why this price?".
 Below the price, the app explains the prediction. Compared with a typical plot,
 Battaramulla's location roughly doubles the price, while land type and size
@@ -84,8 +92,9 @@ band, and here location lowers the price by about 63 percent.
 PART 6 - Close  (4:20 - 4:30)
 >> Show: slide 8 (conclusion).
 -------------------------------
-In short: a tuned stacking ensemble with CatBoost as the new algorithm, explained
-with SHAP and deployed as a live app. Thank you for watching.
+In short: a tuned stacking ensemble for the price, NGBoost as the new algorithm
+for the price range, explained with SHAP and deployed as a live app. Thank you
+for watching.
 
 
 =====================================================================

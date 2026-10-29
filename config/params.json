@@ -35,6 +35,16 @@
   },
   "quality_gate": {
     "min_test_r2_log": 0.85,
-    "max_r2_drop_vs_current": 0.005
+    "max_r2_drop_vs_current": 0.005,
+    "ngboost_coverage80_min": 0.7,
+    "ngboost_coverage80_max": 0.9
+  },
+  "ngboost": {
+    "n_estimators": 489,
+    "learning_rate": 0.007594,
+    "minibatch_frac": 1.0,
+    "col_sample": 1.0,
+    "base_max_depth": 5,
+    "base_min_samples_leaf": 15
   }
 }

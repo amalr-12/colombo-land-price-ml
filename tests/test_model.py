@@ -58,5 +58,27 @@ def test_explanation_adds_up_to_prediction(bundle):
     assert e["grouped_pct"]["Area & location"] > 0  # Battaramulla is pricier than a typical plot
 
 
+def test_ngboost_range_is_ordered_and_contains_its_prediction(bundle, ngb):
+    from explain import price_range
+    for area in ["battaramulla", "kaduwela", "kollupitiya"]:
+        median, low, high = price_range(ngb, _row(bundle, area))
+        assert 0 < low < median < high
+
+
+def test_ngboost_ranges_are_calibrated_on_test_set(clean_df, ngb):
+    from scipy.stats import norm
+    from sklearn.model_selection import train_test_split
+    import pandas as pd
+    holdout = clean_df.sample(1, random_state=SEED)
+    data = clean_df.drop(holdout.index).reset_index(drop=True)
+    strata = pd.qcut(data["log_price_per_perch"], 3, labels=False)
+    _, X_test, _, y_test = train_test_split(data[ngb["features"]], data["log_price_per_perch"],
+                                            test_size=0.2, random_state=SEED, stratify=strata)
+    pipe = ngb["model"]
+    dist = pipe[-1].pred_dist(pipe[:-1].transform(X_test))
+    inside = np.abs(y_test.values - dist.loc) <= norm.ppf(0.9) * dist.scale
+    assert 0.70 <= inside.mean() <= 0.90  # an 80% range should hold about 80% of actual prices
+
+
 def test_reported_accuracy_meets_quality_bar(bundle):
     assert bundle["test_metrics"]["Test R2 (log)"] >= 0.85

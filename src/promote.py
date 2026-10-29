@@ -16,6 +16,11 @@ def check(candidate_metrics, current_path, gate):
     if new_r2 < gate["min_test_r2_log"]:
         reasons.append(f"test R2 {new_r2:.4f} is below the minimum {gate['min_test_r2_log']}")
 
+    cov = candidate_metrics.get("NGBoost", {}).get("80% range coverage")
+    if cov is not None and not gate["ngboost_coverage80_min"] <= cov <= gate["ngboost_coverage80_max"]:
+        reasons.append(f"NGBoost 80% ranges cover {cov:.1%} of test prices, outside "
+                       f"{gate['ngboost_coverage80_min']:.0%}-{gate['ngboost_coverage80_max']:.0%}")
+
     current_r2 = None
     if Path(current_path).exists():
         with open(current_path, "rb") as f:
@@ -41,5 +46,8 @@ def promote(candidate_path, current_path, candidate_metrics, gate):
         shutil.copy2(current_path, backup)
         print(f"backed up deployed model to {backup.name}")
     shutil.copy2(candidate_path, current_path)
-    print(f"PROMOTED - {current_path.name} replaced by the candidate")
+    ngb_candidate = Path(candidate_path).with_name("ngboost_model.pkl")
+    if ngb_candidate.exists():
+        shutil.copy2(ngb_candidate, current_path.with_name("ngboost_model.pkl"))
+    print(f"PROMOTED - {current_path.name} (and ngboost_model.pkl) replaced by the candidates")
     return True

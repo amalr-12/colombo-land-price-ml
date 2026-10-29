@@ -15,13 +15,20 @@ import streamlit as st
 HERE = Path(__file__).parent
 sys.path.insert(0, str(HERE))  # so the pickle can find catboost_wrapper.py
 MODEL_PATH = HERE / "land_price_model.pkl"
+NGBOOST_PATH = HERE / "ngboost_model.pkl"
 
-from explain import PriceExplainer, pretty_name as label  # noqa: E402
+from explain import PriceExplainer, pretty_name as label, price_range  # noqa: E402
 
 
 @st.cache_resource
 def load_bundle():
     with open(MODEL_PATH, "rb") as f:
+        return pickle.load(f)
+
+
+@st.cache_resource
+def load_ngboost():
+    with open(NGBOOST_PATH, "rb") as f:
         return pickle.load(f)
 
 
@@ -43,6 +50,7 @@ with st.sidebar:
     st.subheader("Model")
     st.write(f"**Price:** {bundle['regressor_name']}")
     st.write(f"**Price band:** {bundle['classifier_name']}")
+    st.write("**Price range:** NGBoost (probabilistic)")
     m = bundle["test_metrics"]
     st.write(f"Test R² (log scale): **{m['Test R2 (log)']:.3f}**")
     st.write(f"Median error: **{m['Test median APE']:.0%}**")
@@ -87,6 +95,13 @@ if st.button("Estimate price", type="primary", width="stretch"):
     c.metric("Price band", band)
     st.caption(f"Bands: Low < Rs {lo:,.0f} ≤ Medium < Rs {hi:,.0f} ≤ High (per perch). "
                "The band comes from a separate classifier, so it can occasionally disagree with the price.")
+
+    # ---- Price range from NGBoost (predicts a distribution, not just one number) ----
+    ngb = load_ngboost()
+    _, range_lo, range_hi = price_range(ngb, x, level=0.8)
+    st.info(f"**Likely range (80%): Rs {range_lo:,.0f} – Rs {range_hi:,.0f} per perch**  \n"
+            f"From NGBoost, which predicts a probability distribution of the price. On the test set, "
+            f"{ngb['coverage']['80%']:.0%} of actual prices fell inside their 80% range.")
 
     # ---- Why this price? (SHAP explanation of the predicted price) ----
     st.subheader("Why this price?")

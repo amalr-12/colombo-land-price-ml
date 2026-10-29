@@ -1,8 +1,8 @@
 """Step 2: cleaned table -> trained model bundle + test metrics.
 
 Rebuilds the final models from 02_modelling.ipynb with the tuned hyperparameters in config/params.json:
-a stacking ensemble (Random Forest + XGBoost + CatBoost, RidgeCV on top) for price per perch, and a
-Random Forest classifier for the Low / Medium / High band. The hold-out row, train/test split and seed are
+a stacking ensemble (Random Forest + XGBoost + CatBoost, RidgeCV on top) for price per perch, a
+Random Forest classifier for the Low / Medium / High band, and NGBoost (05_ngboost.ipynb) for the 80% price range. The hold-out row, train/test split and seed are
 the same as in the notebook, so results are directly comparable.
 """
 import numpy as np
@@ -15,9 +15,13 @@ from sklearn.metrics import (accuracy_score, f1_score, mean_absolute_error, mean
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import TargetEncoder
+from ngboost.distns import Normal
+from scipy.stats import norm
+from sklearn.tree import DecisionTreeRegressor
 from xgboost import XGBRegressor
 
-from catboost_wrapper import CatBoostAreaRegressor  # top-level import so the pickle loads in the app
+from catboost_wrapper import CatBoostAreaRegressor  # top-level imports so the pickles load in the app
+from ngboost_wrapper import NGBoostRegressor
 
 TARGET_RAW, TARGET = "Price per Perch", "log_price_per_perch"
 CAT = ["Address"]
@@ -45,6 +49,16 @@ def build_regressor(p, seed):
     xgb = Pipeline([("prep", _prep(seed)), ("model", XGBRegressor(random_state=seed, n_jobs=1, **p["xgboost"]))])
     cat = CatBoostAreaRegressor(cat_features=tuple(CAT), random_seed=seed, thread_count=1, **p["catboost"])
     return StackingRegressor([("rf", rf), ("xgb", xgb), ("cat", cat)], final_estimator=RidgeCV(), cv=5, n_jobs=-1)
+
+
+def build_ngboost(p, seed):
+    q = p["ngboost"]
+    base = DecisionTreeRegressor(criterion="friedman_mse", max_depth=q["base_max_depth"],
+                                 min_samples_leaf=q["base_min_samples_leaf"], random_state=seed)
+    model = NGBoostRegressor(Dist=Normal, Base=base, n_estimators=q["n_estimators"], learning_rate=q["learning_rate"],
+                             minibatch_frac=q["minibatch_frac"], col_sample=q["col_sample"], verbose=False,
+                             random_state=seed)
+    return Pipeline([("prep", _prep(seed)), ("model", model)])
 
 
 def regression_metrics(model, X_test, y_test):
@@ -78,6 +92,15 @@ def train(df, p):
     metrics["Band accuracy"] = float(accuracy_score(yc_test, pc))
     metrics["Band macro F1"] = float(f1_score(yc_test, pc, average="macro"))
 
+    ngb = build_ngboost(p, seed).fit(X_train, y_train)
+    dist = ngb[-1].pred_dist(ngb[:-1].transform(X_test))
+    z80 = float(norm.ppf(0.9))
+    coverage80 = float(np.mean(np.abs(y_test.values - dist.loc) <= z80 * dist.scale))
+    metrics["NGBoost"] = {**regression_metrics(ngb, X_test, y_test), "80% range coverage": coverage80}
+    ngb_bundle = {"model": ngb, "features": features, "z80": z80,
+                  "test_metrics": {k: v for k, v in metrics["NGBoost"].items() if k.startswith("Test")},
+                  "coverage": {"80%": coverage80}}
+
     x_new = holdout[features]
     metrics["Holdout"] = {
         "area": holdout["Address"].iloc[0],
@@ -97,4 +120,4 @@ def train(df, p):
         "area_defaults": data.groupby("Address")[num].median(),
         "test_metrics": {k: v for k, v in metrics.items() if k.startswith("Test")},
     }
-    return bundle, metrics
+    return bundle, ngb_bundle, metrics

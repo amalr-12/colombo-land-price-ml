@@ -16,3 +16,4 @@ def test_app_runs_and_predicts():
     assert labels == ["Price per perch", "Estimated total", "Price band"]
     assert at.metric[2].value == "High"
     assert any(h.value == "Why this price?" for h in at.subheader)
+    assert any("Likely range (80%)" in i.value for i in at.info)

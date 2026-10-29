@@ -11,6 +11,7 @@ before calling the model.
 import numpy as np
 import pandas as pd
 import shap
+from scipy.stats import norm
 
 LOCATION_PREFIXES = ("min_dist", "count", "Distance")
 
@@ -50,6 +51,18 @@ def pretty_name(col):
         place = COUNT_PLURALS.get(token) or PLACES.get(token, token.replace("_", " "))
         return f"No. of {place}" + (" within 2 km" if within else " nearby")
     return col.replace("_", " ")
+
+
+def price_range(ngb_bundle, x, level=0.8):
+    """NGBoost's predicted price per perch and its central `level` range (default 80%).
+
+    NGBoost predicts a Normal distribution for log1p(price), i.e. a log-normal distribution for the price.
+    """
+    pipe = ngb_bundle["model"]
+    dist = pipe[-1].pred_dist(pipe[:-1].transform(x[ngb_bundle["features"]]))
+    mu, sd = float(dist.loc[0]), float(dist.scale[0])
+    z = norm.ppf(0.5 + level / 2)
+    return float(np.expm1(mu)), float(np.expm1(mu - z * sd)), float(np.expm1(mu + z * sd))
 
 
 def feature_group(col):

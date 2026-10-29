@@ -21,9 +21,10 @@ The work follows the assignment guideline:
 
 1. **Problem and dataset:** a real local problem and a real Sri Lankan dataset, with ethical data use
    (Sections 1-3).
-2. **A new algorithm:** **CatBoost**, which was not covered in the lectures, was selected and justified
-   (Section 4.3). It was compared with the taught models (Random Forest and XGBoost), a linear baseline, LightGBM
-   and a stacked ensemble.
+2. **A new algorithm:** **NGBoost (Natural Gradient Boosting)**, which was not covered in the lectures, was
+   selected and justified (Section 4.3). Unlike the taught models it predicts a whole probability distribution,
+   which gives a **price range** for every plot. It was compared with the taught models (Ridge regression,
+   Random Forest, XGBoost, LightGBM, CatBoost and a stacked ensemble).
 3. **Training and evaluation:** train / validation / test split, tuned hyperparameters, and appropriate metrics
    (Sections 4-5).
 4. **Explainability:** permutation feature importance, SHAP, LIME and partial dependence plots, including whether
@@ -36,7 +37,7 @@ The work follows the assignment guideline:
 The main task is **regression** (predicting the price). As an extension, the same problem was also framed
 as **classification** into Low, Medium and High price bands.
 
-All the work was done in Python with Pandas, scikit-learn, XGBoost, LightGBM and CatBoost. The accompanying
+All the work was done in Python with Pandas, scikit-learn, XGBoost, LightGBM, CatBoost and NGBoost. The accompanying
 files are:
 
 | File | Contents |
@@ -45,7 +46,8 @@ files are:
 | `02_modelling.ipynb` | Models, tuning, comparison, interpretation, classification, inference (Sections 4-7) |
 | `03_unseen_areas.ipynb` | Check of how well the models work for areas they have never seen (Section 6.3) |
 | `04_explainability.ipynb` | SHAP, LIME, CatBoost SHAP and partial dependence plots (Sections 6.4-6.5) |
-| `app.py`, `explain.py`, `catboost_wrapper.py` | Front-end application with explanations (Section 7) |
+| `05_ngboost.ipynb` | NGBoost, the new algorithm: tuning, accuracy, price-range calibration, SHAP (Sections 4.3, 6.7) |
+| `app.py`, `explain.py`, `catboost_wrapper.py`, `ngboost_wrapper.py` | Front-end application with explanations and price ranges (Section 7) |
 | `land_price_model.pkl` | Saved final models |
 
 ---
@@ -247,60 +249,81 @@ percentage.
 
 | Model | Why it was included |
 |---|---|
-| **Ridge regression** | Baseline. If tree models can't beat a linear model clearly, their extra complexity isn't justified |
+| **Ridge regression** | Taught. Baseline: if tree models can't beat a linear model clearly, their extra complexity isn't justified |
 | **Random Forest** | Taught in the module (comparison model). Averages many deep, de-correlated trees; robust to noise |
 | **XGBoost** | Taught in the module (comparison model). Gradient boosting: each tree corrects the previous ones' errors |
-| **LightGBM** | Another gradient boosting library that grows trees leaf-wise; a check that XGBoost's result isn't implementation-specific |
-| **CatBoost** | **The new algorithm, not covered in lectures** (Section 4.3). Built for categorical features such as the 160-category `Address` |
-| **Stacking** | Combines the tuned RF, XGBoost and CatBoost with a Ridge meta-model; helps when the base models make different mistakes |
+| **LightGBM** | Taught. Gradient boosting that grows trees leaf-wise; a check that XGBoost's result isn't implementation-specific |
+| **CatBoost** | Taught (lecture and MLOps workshop). Built for categorical features such as the 160-category `Address` |
+| **Stacking** | Taught. Combines the tuned RF, XGBoost and CatBoost with a Ridge meta-model; helps when the base models make different mistakes |
+| **NGBoost** | **The new algorithm, not covered in the lectures** (Section 4.3). Predicts a probability distribution, giving a price range |
 
 Deep learning was not used, following the module guideline, and with 4,000 tabular rows it would not be
 expected to beat gradient boosting anyway.
 
-### 4.3 Selection of a new algorithm: CatBoost
+### 4.3 Selection of a new algorithm: NGBoost
 
-**CatBoost** (Prokhorenkova et al., 2018) is a gradient-boosting algorithm from Yandex. It was not covered in
-the lectures, and it was chosen as the project's new algorithm for three reasons.
+The models covered in the lectures were linear, Ridge and Lasso regression, logistic regression, SVM, k-NN,
+decision trees, bagging, Random Forest, gradient boosting, AdaBoost, XGBoost, LightGBM, CatBoost, voting and
+stacking ensembles, and Explainable Boosting Machines (plus clustering methods). **NGBoost (Natural Gradient
+Boosting; Duan et al., 2020)**, from the Stanford ML Group, is not among them. It was chosen as the project's
+new algorithm (`05_ngboost.ipynb`).
 
 **Why it was selected.**
 
-1. **The data's most important feature is a high-cardinality category.** `Address` has 160 areas, and 88 of them
-   have fewer than 10 listings (Section 3.8). One-hot encoding would create 160 sparse columns, and plain target
-   encoding risks leaking each listing's own price into its features. CatBoost is designed for exactly this case.
-2. **It is robust on small, noisy tabular data.** With about 3,400 training rows of noisy asking prices,
-   overfitting is the main risk, and CatBoost's tree structure and ordered boosting are built to reduce it.
-3. **It fits the guideline's restrictions.** It's a classical (non-deep-learning) method for tabular data.
+1. **Every taught model gives one number, but this problem needs a range.** Asking prices are noisy: similar
+   plots in the same area are advertised at very different prices (Section 3.4), and 88 of the 160 areas have
+   fewer than 10 listings (Section 3.8). A single predicted price hides how uncertain it is. NGBoost predicts a
+   **probability distribution** for each plot, so it can say "80% likely between Rs X and Rs Y". That is more
+   honest and more useful to a buyer or seller.
+2. **It suits the data.** It's a boosting method for tabular data and works well with a few thousand rows. It
+   uses the same preprocessing as the other tree models (cross-fitted target encoding of the area).
+3. **It fits the guideline's restrictions.** It's a classical, non-deep-learning method.
 
-**How it works.** CatBoost builds an ensemble of trees by gradient boosting, like XGBoost, but differs in three
-ways:
+**How it works.** NGBoost treats prediction as estimating a distribution. Here it assumes the **log price** of a
+plot follows a Normal distribution with its own mean μ(x) and standard deviation σ(x), which means the price
+itself is log-normal. Both μ and σ are learned by boosting:
 
-* **Ordered target statistics.** Each category is replaced by the average target of the listings that come
-  *before* it in a random ordering of the data, so a listing's own price is never used to encode its area.
-  This removes the target leakage of naive target encoding.
-* **Ordered boosting.** The same idea is applied to the boosting itself, which reduces "prediction shift", a
-  subtle form of overfitting in standard gradient boosting.
-* **Symmetric (oblivious) trees.** Every node at the same depth uses the same split. These balanced trees act as
-  a strong regulariser and make predictions very fast.
+* At each step, one small regression tree is fitted **per parameter** (one for μ, one for log σ). The trees are
+  fitted to the gradient of a proper scoring rule (the log-likelihood), not to plain residuals.
+* It uses the **natural gradient**: the ordinary gradient rescaled by the Fisher information of the
+  distribution. This makes the updates independent of how the distribution is parametrised, which is what makes
+  learning the spread σ stable. Plain gradient boosting on two parameters tends to be unstable.
+* A line search chooses the step size, and the learning rate shrinks it, as in other boosting methods.
 
-**How it differs from the standard models taught in the module.**
+The result is a full predictive distribution per plot. Its mean is the point prediction, and its quantiles give
+price ranges (μ ± 1.28σ for 80%).
 
-| Model | How it predicts | Handling of the 160-category `Address` | Main difference from CatBoost |
-|---|---|---|---|
-| Decision tree | One tree, greedy splits | Needs encoding; one tree overfits rare areas | CatBoost averages hundreds of boosted, regularised trees |
-| Linear / logistic regression | Weighted sum of features | Needs one-hot (160 columns); no interactions | CatBoost captures non-linear effects and interactions automatically |
-| k-NN | Average of the nearest listings | Needs a distance between categories; sensitive to scaling | CatBoost learns which features matter; no distance or scaling needed |
-| Random Forest (taught) | Averages independent deep trees | Needs encoding beforehand | Trees are built sequentially to fix errors; categories handled natively |
-| XGBoost (taught) | Boosted trees | Needs encoding beforehand | Ordered target statistics and ordered boosting; symmetric trees |
+**How it differs from the models taught in the module.**
+
+| Model | What it predicts | Main difference from NGBoost |
+|---|---|---|
+| Decision tree / Random Forest / bagging | One number (average of leaves or trees) | No spread estimate; uncertainty isn't modelled |
+| Linear / Ridge / Lasso regression | One number; one constant error variance for all plots | NGBoost is non-linear and lets the uncertainty differ from plot to plot |
+| Logistic regression | Probability of a **class** | NGBoost gives a probability distribution over a **continuous** price |
+| k-NN, SVM | One number from neighbours or a kernel | No distribution; need scaling; less suited to the 160-level category |
+| Gradient boosting, AdaBoost, XGBoost, LightGBM, CatBoost | One number: trees fitted to residuals of a loss | NGBoost boosts **two** distribution parameters with the **natural gradient** of the likelihood |
+| Stacking, voting | One number combining other models | — |
+
+**Tuning.** As for every other model, NGBoost was trained first with defaults, then tuned with
+`RandomizedSearchCV` (20 candidates, 5-fold CV, minimising log RMSE). The selected settings were 489 boosting
+iterations, learning rate 0.0076, base trees of depth 5 with at least 15 listings per leaf, and no row or column
+subsampling. Tuning reduced the cross-validated RMSE from 0.437 to **0.428** and raised test R² from 0.848 to
+**0.863**.
 
 **How it performed.**
 
-* CatBoost reached a **test R² of 0.866**, tied for the best of all models (Section 5.1).
-* It **generalised best to areas never seen in training** (R² 0.703 against 0.54 for the linear baseline,
-  Section 6.3), because its category handling treats an unknown area cleanly as "no information".
-* In the final stacked ensemble it carries a weight of **0.30** (Section 5.2).
-* Its exact SHAP explanations agree closely with those of the final model (Section 6.5).
+* **Point accuracy:** NGBoost ranks **third of all eight models** on cross-validated error (0.4278), only 0.0013
+  behind the stacked ensemble. Its test R² is 0.863 and median error 13.1% (Section 5.1).
+* **Price ranges are reliable:** its 80% ranges contain **81.9%** of actual test prices (Section 6.7).
+* **Ranges reflect the data:** they are wider for areas with few listings (Section 6.7).
+* **Consistent with the final model:** 99.9% of the stacked model's predictions fall inside NGBoost's 80% range.
 
-CatBoost is therefore both the project's new algorithm and a core part of the deployed model.
+NGBoost is therefore used **alongside** the stacked ensemble in the application. The ensemble gives the price,
+because it was marginally best on cross-validation, and NGBoost gives the **likely range** around it (Section 7.2).
+
+**Implementation note.** The `ngboost` library (0.5.11) is used. A small wrapper (`ngboost_wrapper.py`) tells
+scikit-learn when the model is fitted. Without it, the scikit-learn 1.9 pipeline check made every
+cross-validation score come back as `NaN`.
 
 ### 4.4 Hyperparameter design
 
@@ -351,21 +374,23 @@ the best models are the ones that avoid chasing noise.
 |---|---|---|---|---|---|---|
 | **Stacking (RF + XGB + Cat)** | **0.4265** | **0.3677** | **0.866** | 554,620 | 23.2% | 11.8% |
 | LightGBM (tuned) | 0.4274 | 0.3726 | 0.862 | 567,464 | 24.5% | 13.5% |
+| **NGBoost (tuned, new algorithm)** | 0.4278 | 0.3714 | 0.863 | 572,292 | 24.8% | 13.1% |
 | XGBoost (tuned) | 0.4282 | 0.3729 | 0.862 | 561,203 | 24.2% | 12.2% |
 | Random Forest (tuned) | 0.4289 | 0.3742 | 0.861 | 552,220 | 23.1% | 11.5% |
 | CatBoost (tuned) | 0.4311 | 0.3677 | 0.866 | 565,099 | 24.0% | 12.3% |
+| NGBoost (default) | 0.4372 | 0.3921 | 0.848 | 596,068 | 26.4% | 14.5% |
 | Random Forest (default) | 0.4450 | 0.4092 | 0.834 | 537,807 | 24.3% | 10.3% |
 | XGBoost (default) | 0.4490 | 0.4138 | 0.830 | 594,944 | 25.6% | 11.0% |
 | Ridge (baseline) | 0.4509 | 0.4063 | 0.836 | 594,270 | 28.8% | 16.5% |
 
-![Figure 4: Test R² and median percentage error for each model](figures/fig2_model_comparison.png)
+![Figure 4: Test R² and median percentage error for each model (notebook 02 models; NGBoost is in the table above)](figures/fig2_model_comparison.png)
 
 The main observations are:
 
 1. **Tuning clearly helped.** Tuning reduced the cross-validated RMSE of Random Forest from 0.445 to 0.429
    and of XGBoost from 0.449 to 0.428. Test R² rose from about 0.83 to 0.86 for both. The defaults
    (unlimited tree depth for Random Forest, a fast learning rate for XGBoost) overfit this noisy data.
-2. **The tuned tree models are very close to each other.** All five tuned models fall within 0.005 RMSE in
+2. **The tuned tree models are very close to each other.** All six tuned models, including NGBoost, fall within 0.005 RMSE in
    cross-validation, which is smaller than the variation between folds. No single algorithm is clearly
    better here; the dataset, not the algorithm, limits the accuracy.
 3. **The linear baseline is already strong** (R² 0.836). The tree models improve on it by about 3 points of
@@ -384,6 +409,10 @@ The **stacked ensemble** had the lowest cross-validated RMSE (0.4265) and was se
 On the test set it also shares the best R² (0.866) with CatBoost. The Ridge meta-model gave weights of
 **0.47 to Random Forest, 0.30 to CatBoost and 0.22 to XGBoost**. The ensemble leans most on Random Forest,
 whose averaging approach makes different errors from the two boosting models.
+
+NGBoost, the new algorithm, is almost as accurate (third on cross-validation), and it is the only model that also
+gives a price **range**. The deployed application therefore uses the stacked ensemble for the price and NGBoost
+for the range around it (Sections 6.7 and 7.2).
 
 ![Figure 5: Predicted vs. actual price per perch on the test set (final model)](figures/fig3_predicted_vs_actual.png)
 
@@ -633,6 +662,42 @@ As with SHAP and LIME, location features never vary on their own within an area,
 Overall, the model has learned the patterns a local estate agent would expect. The one counter-intuitive pattern
 in the raw data turns out to come from location, not from plot size.
 
+### 6.7 Uncertainty: NGBoost price ranges
+
+For every test listing, NGBoost gives a mean μ and a standard deviation σ for the log price. An 80% range is
+μ ± 1.28σ, and a 95% range μ ± 1.96σ, converted back to rupees. A useful range must be **calibrated**: about 80% of
+actual prices should fall inside the 80% ranges.
+
+| Nominal range | 50% | 60% | 70% | **80%** | 90% | 95% |
+|---|---|---|---|---|---|---|
+| Actual test prices inside | 58.2% | 68.1% | 76.0% | **81.9%** | 88.4% | 91.6% |
+
+![Figure 15: Calibration of NGBoost's price ranges (left) and range width by how many listings an area has (right)](figures/fig13_ngboost_calibration.png)
+
+* **The 80% range is well calibrated** (81.9%), which is why the application uses it.
+* **The middle ranges are slightly too wide and the 95% range slightly too narrow.** This means the real errors
+  have heavier tails than a Normal distribution: most listings are predicted well, but a few are far more or
+  less expensive than predicted, often unusual plots or likely data-entry errors. A heavier-tailed distribution
+  (e.g. Student-t) could improve this.
+* **Ranges are wide but honest.** The median 80% range spans about 2 times from lower to upper bound, for example
+  Rs 1.5M-4.0M per perch for a residential plot in Battaramulla. This reflects how noisy asking prices are, and
+  that location is known only per area. A single price would hide this.
+* **Less data means wider ranges.** The median 80% range spans 2.36 times for areas with fewer than 10 training
+  listings, against 2.15 times for 10-49 listings and 1.92 times for 50 or more. The model is appropriately less
+  certain where it has seen less data, which matters for the fairness concerns in Section 8.3.
+* **It agrees with the final model:** 99.9% of the stacked model's predictions fall inside NGBoost's 80% range.
+
+![Figure 16: NGBoost predictions and 80% ranges for 40 random test listings; green crosses are actual prices inside the range, red outside](figures/fig14_ngboost_ranges.png)
+
+**Held-out listing.** For the Dampe plot set aside at the start, NGBoost predicts Rs 358,370 per perch, with an 80%
+range of **Rs 274,480 - Rs 467,899**. The actual asking price, Rs 300,000, is inside the range.
+
+**What NGBoost learned (SHAP).** SHAP's TreeExplainer supports NGBoost directly, explaining the predicted mean.
+Location accounts for **86.1%** of its decisions, land type 9.5% and land size 4.4%. This matches the stacked
+model (87.1%) and CatBoost (86.5%). The area itself and distance from Colombo Fort are its top two features.
+
+![Figure 17: SHAP values of NGBoost's predicted mean for 120 test listings](figures/fig15_ngboost_shap.png)
+
 ---
 
 ## 7. Inference and Application
@@ -681,13 +746,17 @@ The explanation uses the same model-agnostic SHAP method as Section 6.4, applied
 log price, each contribution is shown as a percentage effect on the price. An explanation takes about half a
 second. The SHAP values add up exactly to the prediction, and an automated test checks this.
 
+**Price range ("Likely range (80%)").** Under the price, the application shows NGBoost's 80% range, with a note
+that 82% of actual test prices fell inside their 80% range. This tells the user how much to trust the single
+number.
+
 Example predictions for a 10-perch residential plot:
 
-| Area | Predicted price per perch | Band | Main reason (from the explanation) |
-|---|---|---|---|
-| Kollupitiya (central Colombo) | about Rs 13.1 million | High | Central location close to Fort |
-| Battaramulla (11 km from Fort) | about Rs 2.58 million | High | Location raises the price by about 104% |
-| Kaduwela (18 km from Fort) | about Rs 460,000 | Low | Location lowers the price by about 63% |
+| Area | Predicted price per perch | Likely range (80%, NGBoost) | Band | Main reason (from the explanation) |
+|---|---|---|---|---|
+| Kollupitiya (central Colombo) | about Rs 13.1 million | Rs 8.1M - 18.5M | High | Central location close to Fort |
+| Battaramulla (11 km from Fort) | about Rs 2.58 million | Rs 1.5M - 4.0M | High | Location raises the price by about 104% |
+| Kaduwela (18 km from Fort) | about Rs 460,000 | Rs 239,000 - 874,000 | Low | Location lowers the price by about 63% |
 
 To run the application locally: `pip install -r requirements.txt`, then `streamlit run app.py` from the
 `Assignment_2` folder. It is also deployed online (Section 7.3).
@@ -718,12 +787,13 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
   notebooks. It took 4.4 minutes and reproduced the notebook: identical cleaned data, and test R² 0.8659
   against 0.8661.
 * **Quality gate.** A retrained model replaces the deployed one only if its test R² is at least 0.85 and not
-  more than 0.005 below the current model. In testing, the gate accepted the real retrained model and rejected
+  more than 0.005 below the current model, and NGBoost's 80% ranges cover 70-90% of test prices. In testing, the gate accepted the real retrained model and rejected
   candidates with R² 0.80 and 0.858.
-* **Automated tests.** 15 tests check the data rules (row count, no duplicates, no leaky columns), the model's
+* **Automated tests.** 17 tests check the data rules (row count, no duplicates, no leaky columns), the model's
   behaviour (the held-out listing reproduces the notebook's prediction; central Colombo is priced above the
-  suburbs; all predictions are finite; explanations add up to the prediction) and that the app starts and
-  returns a prediction with its explanation.
+  suburbs; all predictions are finite; explanations add up to the prediction; NGBoost's 80% ranges are ordered
+  and cover 70-90% of test prices) and that the app starts and returns a prediction with its explanation and
+  range.
 * **Continuous integration.** A GitHub Actions workflow runs the tests on Linux on every push. The first run
   passed, confirming that the model trained on Windows loads and predicts correctly with the pinned library
   versions used by the cloud deployment.
@@ -732,7 +802,8 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
 * **Continuous deployment.** Streamlit Community Cloud redeploys the app automatically whenever the `main`
   branch changes.
 * **Pinned dependencies.** `requirements.txt` fixes the exact library versions, because a pickled model must be
-  loaded with the versions it was trained with.
+  loaded with the versions it was trained with. pandas is pinned to 2.3.3, because NGBoost depends on `lifelines`,
+  which doesn't yet support pandas 3. The tests confirmed the saved models load and predict identically.
 
 ---
 
@@ -747,6 +818,9 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
   (Section 6.3), so the application only offers known areas.
 * **Typical error of about 12%**, with larger errors for the rare, very expensive plots in central Colombo,
   which are pulled towards their area's average (Section 5.2).
+* **Wide uncertainty.** NGBoost's 80% ranges typically span about 2 times (Section 6.7), and its 95% ranges are
+  slightly too narrow (heavier tails than a Normal distribution). The model gives a sound first estimate, not a
+  precise valuation.
 
 ### 8.2 Data quality issues
 
@@ -765,8 +839,9 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
 ### 8.3 Risks of bias or unfairness
 
 * **Uneven coverage.** 88 of the 160 areas have fewer than 10 listings, while a few suburbs (Ranala, Makandana,
-  Kaduwela) have hundreds. Predictions for under-represented areas are less reliable. A buyer or seller there
-  could be given a misleading price without knowing it.
+  Kaduwela) have hundreds. Predictions for under-represented areas are less reliable. NGBoost partly makes this
+  visible: its ranges are about 23% wider for areas with fewer than 10 listings (Section 6.7), so users of the
+  application can see the extra uncertainty instead of receiving a falsely precise number.
 * **Over-representation of developer blocks.** Suburban plots sold in batches by developers dominate the data, so
   the model reflects developers' pricing more than private sellers'.
 * **Reinforcing existing inequality.** The model learns that central, well-served areas are expensive and outer
@@ -781,8 +856,8 @@ raw Excel -> src/prepare.py -> clean data -> src/train.py -> candidate model + m
 * **Risk of misuse:** the model must not be used for official valuations, loan or mortgage decisions, tax
   assessment or compensation, because it is trained on 2021 asking prices with area-level location only. The
   application states this ("a rough guide, not a valuation").
-* **Price anchoring:** widely used price estimates can pull the market towards themselves. Any public tool should
-  show its uncertainty and its data date clearly.
+* **Price anchoring:** widely used price estimates can pull the market towards themselves. Showing a range
+  rather than a single number (as the application does with NGBoost) and the data date reduces this risk.
 * **Transparency:** the application explains every prediction (Section 7.2), so users can see *why* a price was
   suggested rather than trusting a black box.
 * **Privacy:** the data contains no personal information (Section 2), and the project uses public data only.
@@ -801,12 +876,12 @@ A model was built to estimate the asking price per perch of land in the Colombo 
 listings. Preprocessing corrected a price-scale error in the data, removed duplicates, and handled the
 heavily skewed target with a log transform, so that only 21 true outliers had to be removed instead of 297
 genuine high-value listings. Random Forest and XGBoost were tuned instead of used with defaults, which
-improved R² from about 0.83 to 0.86. **CatBoost**, an algorithm not covered in the lectures, was selected
-for its native handling of the 160-category area feature. It matched the best test accuracy (R² 0.866) and
-generalised best to unseen areas, and it forms part of the final stacked ensemble. The stacked
+improved R² from about 0.83 to 0.86. **NGBoost**, an algorithm not covered in the lectures, was added because it
+predicts a probability distribution rather than a single number. It ranked third of eight models on
+cross-validated error (test R² 0.863), and its 80% price ranges contained 81.9% of actual test prices. The stacked
 ensemble was selected as the final model on cross-validation, reaching an R² of 0.866 on the log scale and a
-median error of about 12%. A Random Forest classifier assigned Low, Medium and High price bands with 90.5%
-accuracy.
+median error of about 12%. The application combines both: the ensemble's price with NGBoost's likely range. A
+Random Forest classifier assigned Low, Medium and High price bands with 90.5% accuracy.
 
 The most important finding came from the data rather than the models: the location features are recorded per
 area, not per plot. As a result, **location (area) explains most of the price**, all well-tuned tree models
@@ -845,5 +920,8 @@ AI assistance was used for coding support and for generating the front-end appli
    Mining*, 1135-1144.
 9. Friedman, J. H. (2001). Greedy Function Approximation: A Gradient Boosting Machine. *Annals of Statistics*,
    29(5), 1189-1232.
-10. IT5514 Applied Machine Learning lecture notes and lab sheets: Decision Trees and Random Forest, XGBoost,
+10. Duan, T., Avati, A., Ding, D. Y., Thai, K. K., Basu, S., Ng, A. and Schuler, A. (2020). NGBoost: Natural
+    Gradient Boosting for Probabilistic Prediction. *Proceedings of the 37th International Conference on Machine
+    Learning (ICML)*, PMLR 119, 2690-2700.
+11. IT5514 Applied Machine Learning lecture notes and lab sheets: Decision Trees and Random Forest, XGBoost,
    and the feature engineering lab (IQR outlier method).

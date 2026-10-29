@@ -20,3 +20,9 @@ def clean_df():
 def bundle():
     with open(ROOT / "land_price_model.pkl", "rb") as f:
         return pickle.load(f)
+
+
+@pytest.fixture(scope="session")
+def ngb():
+    with open(ROOT / "ngboost_model.pkl", "rb") as f:
+        return pickle.load(f)

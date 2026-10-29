@@ -37,17 +37,17 @@ thing: how central and built-up an area is.
 
 SLIDE 4 - Model accuracy  (1:35 - 2:30)
 ---------------------------------------
-This table compares every model I trained. Random Forest and XGBoost were
-taught in the module, so together with a Ridge baseline they are my comparison
-models. My new algorithm is CatBoost, which was not covered in the lectures. I
-chose it because the area column has 160 categories, many of them rare, and
-CatBoost encodes categories without leaking the target. It reached an R-squared
-of 0.866, tied for best, and it generalised best to areas it had never seen.
+This table compares every model I trained. Ridge, Random Forest, XGBoost,
+LightGBM, CatBoost and stacking were all taught in the module. My new algorithm
+is NGBoost, which was not covered in the lectures. Every taught model predicts
+one number; NGBoost predicts a whole probability distribution of the price,
+using natural gradient boosting, so it can give a price range. After tuning with
+five-fold cross-validation it ranks third of eight, with an R-squared of 0.863,
+and its 80 percent ranges contain 82 percent of actual prices.
 
-Tuning with five-fold cross-validation clearly helped: about 0.83 with default
-settings, 0.86 tuned. The final model is a stacking ensemble of Random Forest,
-XGBoost and CatBoost, chosen because it had the lowest cross-validated error.
-It reaches a median error of about 12 percent.
+Tuning helped every model: about 0.83 with default settings, 0.86 tuned. The
+final price model is the stacking ensemble, which had the lowest
+cross-validated error and a median error of about 12 percent.
 
 
 SLIDE 5 - Key finding  (2:30 - 3:10)
@@ -80,11 +80,11 @@ I choose an area and a size. Battaramulla, about 11 kilometres from Fort, comes
 out at about 2.6 million rupees per perch, in the high band.
    >> Select "kaduwela", click "Estimate price".
 Kaduwela, further out, comes out at about 460,000, in the low band.
-   >> Scroll down to "Why this price?".
-Under each price, the app explains it: for Battaramulla, its location roughly
-doubles the price compared with a typical plot. Behind it is a GitHub
-repository with 15 automated tests, a retraining pipeline with a quality gate,
-and automatic redeployment.
+   >> Point at the blue "Likely range" box, then scroll to "Why this price?".
+Under each price, NGBoost gives a likely range, for Battaramulla about 1.5 to 4
+million, and SHAP explains it: Battaramulla's location roughly doubles the price
+compared with a typical plot. Behind it is a GitHub repository with 17 automated
+tests, a retraining pipeline with a quality gate, and automatic redeployment.
    >> Alt+Tab back to the slides.
 
 
@@ -102,8 +102,9 @@ Thank you. I'm happy to take questions.
 KEY NUMBERS (one per slide)
   2: 4,494 -> 4,275 listings      5: 81% between areas, 0.70 vs 0.54
   3: 84x price gap, rho -0.81     6: location 87% (SHAP and CatBoost SHAP)
-  4: CatBoost = new algorithm;    7: Battaramulla ~Rs 2.6M High, Kaduwela ~Rs 460k Low,
-     stacking R2 0.866, ~12%         "Why this price?" location roughly doubles it
+  4: NGBoost = new algorithm      7: Battaramulla ~Rs 2.6M High (range 1.5M-4.0M),
+     (3rd of 8, ranges hold 82%);    Kaduwela ~Rs 460k Low; location roughly doubles
+     stacking R2 0.866, ~12%            Battaramulla's price ("Why this price?")
 
 IF RUNNING LONG (about 670 words = 4:50-5:10)
   - Slide 3: drop the last sentence ("And the location features are...").
@@ -116,10 +117,11 @@ LIVE APP
 
 LIKELY QUESTIONS
   "What is your new algorithm, and how is it different?"
-    "CatBoost. Unlike a decision tree or Random Forest, it handles categories
-     itself with ordered target statistics, so the area name is encoded without
-     leaking the price; it also uses ordered boosting and symmetric trees, which
-     reduce overfitting on small, noisy data."
-  "Why stacking and not CatBoost?"
-    "I selected on cross-validation, not the test set, and stacking had the lowest
-     cross-validated error, 0.4265 against 0.4311 for CatBoost."
+    "NGBoost. All the taught models predict one number. NGBoost predicts a whole
+     probability distribution: it boosts both the mean and the spread of the log
+     price, using the natural gradient so learning the spread is stable. That
+     gives a price range, and its 80% ranges hold 82% of actual test prices."
+  "Why is stacking the final model and not NGBoost?"
+    "I selected on cross-validation, not the test set. Stacking had the lowest
+     cross-validated error (0.4265 against 0.4278 for NGBoost), so it gives the
+     price, and NGBoost gives the range around it."

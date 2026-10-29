@@ -41,14 +41,17 @@ def main():
 
     t = time.time()
     df = df.copy()
-    bundle, metrics = train(df, params)
+    bundle, ngb_bundle, metrics = train(df, params)
     candidate = args.out / "land_price_model.pkl"
     with open(candidate, "wb") as f:
         pickle.dump(bundle, f)
+    with open(args.out / "ngboost_model.pkl", "wb") as f:
+        pickle.dump(ngb_bundle, f)
     metrics["data"] = prep_report
     (args.out / "metrics.json").write_text(json.dumps(metrics, indent=2))
     print(f"[2/3] train: R2 (log) {metrics['Test R2 (log)']:.4f} | median APE {metrics['Test median APE']:.1%} | "
-          f"band accuracy {metrics['Band accuracy']:.1%}  ({time.time() - t:.0f}s)")
+          f"band accuracy {metrics['Band accuracy']:.1%} | NGBoost R2 {metrics['NGBoost']['Test R2 (log)']:.4f}, "
+          f"80% coverage {metrics['NGBoost']['80% range coverage']:.1%}  ({time.time() - t:.0f}s)")
 
     if args.promote:
         ok = promote(candidate, ROOT / "land_price_model.pkl", metrics, params["quality_gate"])

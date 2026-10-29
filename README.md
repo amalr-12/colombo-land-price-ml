@@ -10,9 +10,11 @@ type. IT5514 Applied Machine Learning, final assignment.
 | Task | Regression (price per perch), plus Low / Medium / High price-band classification |
 | Data | 4,494 Colombo land listings, Jul-Sep 2021 ([Kaggle](https://www.kaggle.com/datasets/ruchiraayeshmantha/land-prices-of-colombo-district)), 4,275 after cleaning |
 | Final model | Stacking ensemble: Random Forest + XGBoost + CatBoost, RidgeCV meta-model |
+| New algorithm | **NGBoost** (not covered in lectures): predicts a price distribution, used for the 80% price range |
 | Test R² (log scale) | **0.866** |
 | Median error | **11.8%** |
 | Band accuracy | **90.5%** (Random Forest classifier) |
+| Price ranges | NGBoost 80% ranges contain **81.9%** of actual test prices |
 
 ## Repository structure
 
@@ -20,10 +22,14 @@ type. IT5514 Applied Machine Learning, final assignment.
 01_data_preparation.ipynb   cleaning, preprocessing and EDA
 02_modelling.ipynb          Ridge, RF, XGBoost, LightGBM, CatBoost, stacking: tuning, comparison, classification
 03_unseen_areas.ipynb       generalisation to areas the model has never seen
-04_explainability.ipynb     SHAP and LIME
-app.py                      Streamlit front-end (loads land_price_model.pkl)
+04_explainability.ipynb     SHAP, LIME, CatBoost SHAP, partial dependence
+05_ngboost.ipynb            NGBoost (new algorithm): tuning, accuracy, price-range calibration, SHAP
+app.py                      Streamlit front-end: price, likely range, band, "Why this price?"
+explain.py                  SHAP explanations and NGBoost price ranges for the app
 catboost_wrapper.py         scikit-learn compatible CatBoost wrapper (needed to load the model)
-land_price_model.pkl        deployed model bundle
+ngboost_wrapper.py          scikit-learn compatible NGBoost wrapper (needed to load the range model)
+land_price_model.pkl        deployed model bundle (stacking price model + band classifier)
+ngboost_model.pkl           deployed NGBoost range model
 src/                        retraining pipeline: prepare.py, train.py, promote.py
 run_pipeline.py             runs the pipeline end to end
 config/params.json          tuned hyperparameters and quality-gate thresholds
@@ -40,13 +46,13 @@ pip install -r requirements.txt          # app + tests
 streamlit run app.py                     # front-end at http://localhost:8501
 
 pip install -r requirements-dev.txt      # notebooks + pipeline
-python -m pytest                         # 15 tests: data rules, model behaviour, explanations, app smoke test
+python -m pytest                         # 17 tests: data rules, model behaviour, explanations, ranges, app smoke test
 python run_pipeline.py                   # retrain a candidate model into artifacts/
 python run_pipeline.py --promote         # ...and replace the deployed model if it passes the quality gate
 ```
 
-Python 3.12. Library versions are pinned exactly, because the pickled model must be loaded with the versions
-it was trained with.
+Python 3.12. Library versions are pinned exactly, because the pickled models must be loaded with the versions
+they were trained with. pandas is 2.3.3 because NGBoost's dependency `lifelines` doesn't support pandas 3 yet.
 
 ## MLOps pipeline
 
@@ -82,6 +88,9 @@ sellers comparing advertisements. It isn't a professional valuation.
 **Performance (test set, 855 listings).** R² 0.866 on log price, median absolute error 11.8%, MAE
 Rs 554,620 per perch. On areas *not* seen in training, R² falls to about 0.69 (grouped cross-validation), so the
 app only offers known areas.
+
+**Uncertainty.** NGBoost gives an 80% price range for every prediction; 81.9% of actual test prices fall inside
+it. Ranges typically span about 2x (asking prices are noisy) and are wider for areas with few listings.
 
 **What drives predictions.** Location explains 87% of the model's decisions (SHAP), mainly distance from
 Colombo Fort, the area itself and distance to grade-A schools. Land type explains 9%, land size 4%.
