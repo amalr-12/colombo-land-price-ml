@@ -50,9 +50,8 @@ R-squared of 0.866 on the test set, with a median error of about 12 percent.
 PART 4 - Why this model  (2:20 - 2:50)
 >> Show: slide 4, right-hand panel.
 --------------------------------------
-My new algorithm is NGBoost, which wasn't covered in the lectures. Every taught
-model predicts one number, but asking prices are noisy, so a single number
-hides the uncertainty. NGBoost predicts a whole probability distribution of the
+My new algorithm is NGBoost. Asking prices are noisy, so a single number hides
+the uncertainty. NGBoost predicts a whole probability distribution of the
 price, so it gives a range. It ranks third of eight on cross-validated error,
 and its 80 percent ranges contain 82 percent of actual prices. The final price
 model stacks Random Forest, XGBoost and CatBoost, because that had the lowest
