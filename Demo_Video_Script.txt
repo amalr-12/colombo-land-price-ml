@@ -17,7 +17,7 @@ its predictions.
 PART 2 - How the project was implemented  (0:20 - 1:40)
 >> Show: VS Code with the Assignment_2 folder open in the Explorer.
 -------------------------------------------------------
-I built the project in four notebooks, plus an application and an automated
+I built the project in five notebooks, plus an application and an automated
 pipeline.
 >> Click 01_data_preparation.ipynb.
 In the first notebook I cleaned the data: 4,494 Kaggle land listings. I chose
