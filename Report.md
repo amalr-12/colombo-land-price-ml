@@ -7,6 +7,8 @@ subtitle: "IT5514 Applied Machine Learning - Assignment 02"
 
 **Name:** Amal Ranawaka &nbsp;&nbsp;&nbsp;&nbsp; **Index Number:** 269179J
 
+**GitHub repository:** https://github.com/amalr-12/colombo-land-price-ml
+
 ---
 
 ## 1. Introduction
